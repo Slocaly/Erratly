@@ -16,7 +16,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "87"
             endingLineNumber = "87"
-            landmarkName = "getSelectedText()"
+            landmarkName = "replaceTextViaClipboard(newText:app:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

@@ -23,24 +23,29 @@ actor LLMService {
         print("✅ Model loaded!")
     }
     
-    func correctText(_ text: String) async throws -> String {
+    func correctText(_ text: String, language: String?) async throws -> String {
         guard let container = modelContainer else {
             throw NSError(domain: "LLMService", code: 0, userInfo: [NSLocalizedDescriptionKey: "Model not loaded"])
         }
-        
+
+        var systemPrompt = """
+            You are a spelling and grammar corrector. Your rules:
+            - Fix spelling mistakes only
+            - Fix obvious grammar errors (wrong verb conjugation, wrong accents)
+            - Do NOT change word choice or rephrase
+            - Do NOT add or remove words
+            - Return ONLY the corrected text, no explanation
+            """
+        if let lang = language {
+            systemPrompt += "\n- The text is written in \(lang), correct it in \(lang)"
+        }
+
         var output = ""
 
         let _ = try await container.perform { context in
             let input = try await context.processor.prepare(
                 input: UserInput(chat: [
-                    .system("""
-                        You are a spelling and grammar corrector. Your rules:
-                        - Fix spelling mistakes only
-                        - Fix obvious grammar errors (wrong verb conjugation, wrong accents)
-                        - Do NOT change word choice or rephrase
-                        - Do NOT add or remove words
-                        - Return ONLY the corrected text, no explanation
-                        """),
+                    .system(systemPrompt),
                     .user(text)
                 ])
             )
