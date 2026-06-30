@@ -14,9 +14,12 @@ struct SpellFixApp {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var lastControlPressTime: Date?
+    var lastControlShiftPressTime: Date?
+    var isShiftTrigger = false
     var previousApp: NSRunningApplication?
     var statusItem: NSStatusItem?
     var currentStatus: AppStatus = .loading
+    var diffPanel: DiffPanel?
 
     static let languages: [String] = [
         "English", "French", "Spanish", "German", "Italian",
@@ -37,6 +40,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     var strings: Strings { Strings.forLanguage(selectedLanguage) }
 
+    var showDiffPanel: Bool {
+        get { UserDefaults.standard.object(forKey: "showDiffPanel") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "showDiffPanel") }
+    }
+
     func setupMenuBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         setStatus(.loading)
@@ -50,15 +58,56 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func handleSelectedText(_ text: String, previousClipboard: String?, app: NSRunningApplication) {
+    func handleSelectedText(_ text: String, previousClipboard: String?, selectionBounds: CGRect?, app: NSRunningApplication) {
+        let effectiveShowDiff = isShiftTrigger ? !showDiffPanel : showDiffPanel
+        isShiftTrigger = false
+        let examples = CorrectionHistory.shared.pairs
         setStatus(.processing)
 
         Task {
             do {
-                let corrected = try await LLMService.shared.correctText(text, language: self.selectedLanguage)
+                let corrected = try await LLMService.shared.correctText(text, language: self.selectedLanguage, examples: examples)
                 await MainActor.run {
-                    self.replaceSelectedText(corrected, app: app, previousClipboard: previousClipboard)
                     self.setStatus(.ready)
+
+                    guard corrected != text else {
+                        Analytics.correctionNoChange()
+                        return
+                    }
+
+                    guard effectiveShowDiff else {
+                        CorrectionHistory.shared.record(original: text, corrected: corrected)
+                        self.replaceSelectedText(corrected, app: app, previousClipboard: previousClipboard)
+                        Analytics.correctionApplied(language: self.selectedLanguage)
+                        return
+                    }
+
+                    self.diffPanel?.window?.close()
+                    NSApp.activate(ignoringOtherApps: true)
+
+                    self.diffPanel = DiffPanel(
+                        original: text,
+                        corrected: corrected,
+                        selectionBounds: selectionBounds,
+                        onAccept: { [weak self] in
+                            CorrectionHistory.shared.record(original: text, corrected: corrected)
+                            self?.replaceSelectedText(corrected, app: app, previousClipboard: previousClipboard)
+                            Analytics.correctionAccepted(language: self?.selectedLanguage)
+                            app.activate()
+                            self?.diffPanel = nil
+                        },
+                        onCancel: { [weak self] in
+                            let pasteboard = NSPasteboard.general
+                            pasteboard.clearContents()
+                            if let previous = previousClipboard {
+                                pasteboard.setString(previous, forType: .string)
+                            }
+                            Analytics.correctionRejected(language: self?.selectedLanguage)
+                            app.activate()
+                            self?.diffPanel = nil
+                        }
+                    )
+                    self.diffPanel?.showWindow(nil)
                 }
             } catch {
                 print("❌ LLM error: \(error)")
@@ -75,6 +124,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Analytics.initialize()
+
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
         AXIsProcessTrustedWithOptions(options as CFDictionary)
 
@@ -96,19 +147,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { event in
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            let isControlOnly = flags == .control
+            let now = Date()
 
-            if isControlOnly {
-                let now = Date()
-
+            if flags == .control {
                 if let lastPress = self.lastControlPressTime,
                    now.timeIntervalSince(lastPress) < 0.4 {
-                    print("🎉 Double Control tap triggered!")
+                    print("🎉 Double Control triggered!")
+                    self.isShiftTrigger = false
                     self.getSelectedText()
                     self.lastControlPressTime = nil
                 } else {
                     self.previousApp = NSWorkspace.shared.frontmostApplication
                     self.lastControlPressTime = now
+                }
+            } else if flags == [.control, .shift] {
+                if let lastPress = self.lastControlShiftPressTime,
+                   now.timeIntervalSince(lastPress) < 0.4 {
+                    print("🎉 Double Control+Shift triggered!")
+                    self.isShiftTrigger = true
+                    self.getSelectedText()
+                    self.lastControlShiftPressTime = nil
+                } else {
+                    self.previousApp = NSWorkspace.shared.frontmostApplication
+                    self.lastControlShiftPressTime = now
                 }
             }
         }

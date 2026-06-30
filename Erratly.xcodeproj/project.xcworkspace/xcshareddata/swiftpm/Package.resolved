@@ -1,5 +1,5 @@
 {
-  "originHash" : "6b8265ebd61c6fdfca835dd1f90f17439ca9abc5c11a8b7b5db8790be0349e4d",
+  "originHash" : "5f8a4fbbf56dac61bd63aa03c1254b23a800968c3be683e624f96baf4136d1f3",
   "pins" : [
     {
       "identity" : "gzipswift",
@@ -62,6 +62,15 @@
       "state" : {
         "revision" : "a2e184dddb4757bc943e77fbe99ac6786c53f0b2",
         "version" : "1.0.0"
+      }
+    },
+    {
+      "identity" : "swiftsdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/TelemetryDeck/SwiftSDK",
+      "state" : {
+        "revision" : "ad4a03ec7ea7416a4081370f21c86e55b02a5b88",
+        "version" : "2.14.1"
       }
     }
   ],

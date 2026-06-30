@@ -15,9 +15,21 @@ extension AppDelegate {
 
         menu.addItem(.separator())
 
+        let reviewItem = NSMenuItem(title: s.reviewBeforeApplying, action: #selector(toggleDiffPanel), keyEquivalent: "")
+        reviewItem.state = showDiffPanel ? .on : .off
+        reviewItem.target = self
+        menu.addItem(reviewItem)
+
         let languageItem = NSMenuItem(title: s.language, action: nil, keyEquivalent: "")
         languageItem.submenu = buildLanguageSubmenu(strings: s)
         menu.addItem(languageItem)
+
+        if !CorrectionHistory.shared.isEmpty {
+            menu.addItem(.separator())
+            let historyItem = NSMenuItem(title: s.clearHistory, action: #selector(clearCorrectionHistory), keyEquivalent: "")
+            historyItem.target = self
+            menu.addItem(historyItem)
+        }
 
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: s.quit, action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -49,6 +61,16 @@ extension AppDelegate {
 
     @objc func selectLanguage(_ sender: NSMenuItem) {
         selectedLanguage = sender.representedObject as? String
+        updateMenu(status: currentStatus)
+    }
+
+    @objc func toggleDiffPanel() {
+        showDiffPanel.toggle()
+        updateMenu(status: currentStatus)
+    }
+
+    @objc func clearCorrectionHistory() {
+        CorrectionHistory.shared.clear()
         updateMenu(status: currentStatus)
     }
 }

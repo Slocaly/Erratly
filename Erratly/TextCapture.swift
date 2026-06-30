@@ -13,7 +13,8 @@ extension AppDelegate {
 
         if let text = getTextViaAX(app: frontApp), !text.isEmpty {
             print("📋 Got text via AX: \(text)")
-            handleSelectedText(text, previousClipboard: previousClipboard, app: frontApp)
+            let bounds = getSelectionBoundsViaAX(app: frontApp)
+            handleSelectedText(text, previousClipboard: previousClipboard, selectionBounds: bounds, app: frontApp)
             return
         }
 
@@ -54,7 +55,7 @@ extension AppDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 if let text = pasteboard.string(forType: .string), !text.isEmpty {
                     print("📋 Got text via clipboard: \(text)")
-                    self.handleSelectedText(text, previousClipboard: previousClipboard, app: app)
+                    self.handleSelectedText(text, previousClipboard: previousClipboard, selectionBounds: nil, app: app)
                 } else {
                     print("⚠️ Nothing selected")
                     pasteboard.clearContents()
@@ -91,6 +92,26 @@ extension AppDelegate {
         let setResult = AXUIElementSetAttributeValue(element as! AXUIElement, kAXSelectedTextAttribute as CFString, newText as CFTypeRef)
 
         return setResult == .success
+    }
+
+    func getSelectionBoundsViaAX(app: NSRunningApplication) -> CGRect? {
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+
+        var focusedElement: AnyObject?
+        guard AXUIElementCopyAttributeValue(axApp, kAXFocusedUIElementAttribute as CFString, &focusedElement) == .success,
+              let element = focusedElement else { return nil }
+
+        var rangeValue: AnyObject?
+        guard AXUIElementCopyAttributeValue(element as! AXUIElement, kAXSelectedTextRangeAttribute as CFString, &rangeValue) == .success,
+              let range = rangeValue else { return nil }
+
+        var boundsValue: AnyObject?
+        guard AXUIElementCopyParameterizedAttributeValue(element as! AXUIElement, kAXBoundsForRangeParameterizedAttribute as CFString, range, &boundsValue) == .success,
+              let axBounds = boundsValue else { return nil }
+
+        var rect = CGRect.zero
+        guard AXValueGetValue(axBounds as! AXValue, .cgRect, &rect) else { return nil }
+        return rect
     }
 
     func replaceTextViaClipboard(newText: String, app: NSRunningApplication, previousClipboard: String?) {

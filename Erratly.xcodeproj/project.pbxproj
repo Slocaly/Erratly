@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		A0D9FCEB2FF1755C0005AF74 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FCEA2FF1755C0005AF74 /* MLXLLM */; };
 		A0D9FCED2FF1755C0005AF74 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FCEC2FF1755C0005AF74 /* MLXLMCommon */; };
+		A0D9FD062FF41BF20005AF74 /* TelemetryClient in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FD052FF41BF20005AF74 /* TelemetryClient */; };
+		A0D9FD082FF41BF20005AF74 /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FD072FF41BF20005AF74 /* TelemetryDeck */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,7 +44,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				A0D9FCED2FF1755C0005AF74 /* MLXLMCommon in Frameworks */,
+				A0D9FD062FF41BF20005AF74 /* TelemetryClient in Frameworks */,
 				A0D9FCEB2FF1755C0005AF74 /* MLXLLM in Frameworks */,
+				A0D9FD082FF41BF20005AF74 /* TelemetryDeck in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -87,6 +91,8 @@
 			packageProductDependencies = (
 				A0D9FCEA2FF1755C0005AF74 /* MLXLLM */,
 				A0D9FCEC2FF1755C0005AF74 /* MLXLMCommon */,
+				A0D9FD052FF41BF20005AF74 /* TelemetryClient */,
+				A0D9FD072FF41BF20005AF74 /* TelemetryDeck */,
 			);
 			productName = Erratly;
 			productReference = A0D9FCD92FF1321E0005AF74 /* Erratly.app */;
@@ -118,6 +124,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A0D9FCE92FF1755C0005AF74 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */,
+				A0D9FD042FF41BF20005AF74 /* XCRemoteSwiftPackageReference "SwiftSDK" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A0D9FCDA2FF1321E0005AF74 /* Products */;
@@ -366,6 +373,14 @@
 				minimumVersion = 2.29.1;
 			};
 		};
+		A0D9FD042FF41BF20005AF74 /* XCRemoteSwiftPackageReference "SwiftSDK" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/TelemetryDeck/SwiftSDK";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.14.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -378,6 +393,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A0D9FCE92FF1755C0005AF74 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */;
 			productName = MLXLMCommon;
+		};
+		A0D9FD052FF41BF20005AF74 /* TelemetryClient */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A0D9FD042FF41BF20005AF74 /* XCRemoteSwiftPackageReference "SwiftSDK" */;
+			productName = TelemetryClient;
+		};
+		A0D9FD072FF41BF20005AF74 /* TelemetryDeck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A0D9FD042FF41BF20005AF74 /* XCRemoteSwiftPackageReference "SwiftSDK" */;
+			productName = TelemetryDeck;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
