@@ -55,6 +55,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.currentStatus = status
             self.statusItem?.button?.title = status.symbol
             self.updateMenu(status: status)
+
+            if status != .processing {
+                LoadingOverlay.shared.hide()
+            }
         }
     }
 
@@ -63,6 +67,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         isShiftTrigger = false
         let examples = CorrectionHistory.shared.pairs
         setStatus(.processing)
+        LoadingOverlay.shared.show(near: selectionBounds)
 
         Task {
             do {
