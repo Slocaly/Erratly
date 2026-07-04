@@ -5,6 +5,40 @@ private class FloatingPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+private class HighlightedTextView: NSTextView {
+    var highlights: [(NSRange, NSColor)] = []
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let layoutManager = layoutManager else {
+            super.draw(dirtyRect)
+            return
+        }
+
+        for (range, color) in highlights {
+            let glyphRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            color.withAlphaComponent(0.12).setFill()
+            color.withAlphaComponent(0.3).setStroke()
+
+            layoutManager.enumerateLineFragments(forGlyphRange: glyphRange) { [weak self] (_, _, container, lineGlyphRange, _) in
+                guard let self else { return }
+                let start = max(lineGlyphRange.location, glyphRange.location)
+                let end = min(NSMaxRange(lineGlyphRange), NSMaxRange(glyphRange))
+                guard start < end else { return }
+                let subRange = NSRange(location: start, length: end - start)
+                var rect = layoutManager.boundingRect(forGlyphRange: subRange, in: container)
+                rect = rect.offsetBy(dx: textContainerOrigin.x, dy: textContainerOrigin.y)
+                let inflated = rect.insetBy(dx: -2, dy: -1)
+                let path = NSBezierPath(roundedRect: inflated, xRadius: 3, yRadius: 3)
+                path.fill()
+                path.lineWidth = 0.5
+                path.stroke()
+            }
+        }
+
+        super.draw(dirtyRect)
+    }
+}
+
 class DiffPanel: NSWindowController, NSWindowDelegate {
     private var onAccept: (() -> Void)?
     private var onCancel: (() -> Void)?
@@ -48,7 +82,8 @@ class DiffPanel: NSWindowController, NSWindowDelegate {
         let padding: CGFloat = 12
         let buttonH: CGFloat = 32
         let spacing: CGFloat = 8
-        let textAreaH = bounds.height - padding * 2 - buttonH - spacing
+        let separatorH: CGFloat = 1
+        let textAreaH = bounds.height - padding * 2 - buttonH - spacing - separatorH
         let textAreaW = bounds.width - padding * 2
 
         // Frosted glass background with rounded corners
@@ -66,14 +101,14 @@ class DiffPanel: NSWindowController, NSWindowDelegate {
         contentView.addSubview(effectView)
 
         // Scroll view + text view
-        let scrollView = NSScrollView(frame: NSRect(x: padding, y: padding + buttonH + spacing, width: textAreaW, height: textAreaH))
+        let scrollView = NSScrollView(frame: NSRect(x: padding, y: padding + buttonH + spacing + separatorH, width: textAreaW, height: textAreaH))
         scrollView.borderType = .noBorder
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
 
-        let textView = NSTextView(frame: NSRect(origin: .zero, size: scrollView.contentSize))
+        let textView = HighlightedTextView(frame: NSRect(origin: .zero, size: scrollView.contentSize))
         textView.minSize = NSSize(width: 0, height: scrollView.contentSize.height)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.isVerticallyResizable = true
@@ -88,9 +123,16 @@ class DiffPanel: NSWindowController, NSWindowDelegate {
         textView.textContainerInset = NSSize(width: 4, height: 6)
 
         let tokens = Diff.compute(original: original, corrected: corrected)
-        textView.textStorage?.setAttributedString(buildAttributedString(from: tokens))
+        let (attrString, highlights) = buildContent(from: tokens)
+        textView.textStorage?.setAttributedString(attrString)
+        textView.highlights = highlights
         scrollView.documentView = textView
         effectView.addSubview(scrollView)
+
+        // Thin separator
+        let separator = NSBox(frame: NSRect(x: padding, y: padding + buttonH + spacing, width: textAreaW, height: separatorH))
+        separator.boxType = .separator
+        effectView.addSubview(separator)
 
         // Buttons
         let cancelBtn = NSButton(title: "Cancel", target: self, action: #selector(cancelAction))
@@ -146,11 +188,13 @@ class DiffPanel: NSWindowController, NSWindowDelegate {
         window.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
-    private func buildAttributedString(from tokens: [DiffToken]) -> NSAttributedString {
+    private func buildContent(from tokens: [DiffToken]) -> (NSAttributedString, [(NSRange, NSColor)]) {
         let result = NSMutableAttributedString()
+        var highlights: [(NSRange, NSColor)] = []
         let font = NSFont.systemFont(ofSize: 14)
 
         for token in tokens {
+            let start = result.length
             switch token {
             case .unchanged(let text):
                 result.append(NSAttributedString(string: text, attributes: [
@@ -160,19 +204,21 @@ class DiffPanel: NSWindowController, NSWindowDelegate {
             case .removed(let text):
                 result.append(NSAttributedString(string: text, attributes: [
                     .font: font,
-                    .foregroundColor: NSColor.systemRed,
+                    .foregroundColor: NSColor.secondaryLabelColor,
                     .strikethroughStyle: NSUnderlineStyle.single.rawValue,
-                    .strikethroughColor: NSColor.systemRed
+                    .strikethroughColor: NSColor.secondaryLabelColor
                 ]))
+                highlights.append((NSRange(location: start, length: result.length - start), NSColor.systemRed))
             case .added(let text):
                 result.append(NSAttributedString(string: text, attributes: [
                     .font: font,
-                    .foregroundColor: NSColor.systemGreen
+                    .foregroundColor: NSColor.labelColor
                 ]))
+                highlights.append((NSRange(location: start, length: result.length - start), NSColor.systemGreen))
             }
         }
 
-        return result
+        return (result, highlights)
     }
 
     // MARK: - Actions
