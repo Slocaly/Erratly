@@ -36,7 +36,7 @@ jobs:
       - name: Package
         run: |
           cd build/Build/Products/Release
-          zip -r --symlinks "$GITHUB_WORKSPACE/Erratly-${{ github.ref_name }}.zip" Erratly.app
+          zip -r --symlinks "$GITHUB_WORKSPACE/Erratly.zip" Erratly.app
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
