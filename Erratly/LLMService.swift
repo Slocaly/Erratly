@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import MLX
 import MLXLLM
 import MLXLMCommon
 import Tokenizers
@@ -18,6 +19,10 @@ actor LLMService {
 
     func loadModel() async throws {
         print("🤖 Loading model...")
+        // MLX's GPU cache defaults to the memory limit, which lets freed
+        // buffers pile up unreclaimed across corrections. Capping it keeps
+        // resident memory close to what the model actually needs.
+        MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)
         let config = ModelConfiguration(id: "mlx-community/\(LLMService.modelName)")
         modelContainer = try await LLMModelFactory.shared.loadContainer(configuration: config)
         print("✅ Model loaded!")

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A0D9FCEB2FF1755C0005AF74 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FCEA2FF1755C0005AF74 /* MLXLLM */; };
 		A0D9FCED2FF1755C0005AF74 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FCEC2FF1755C0005AF74 /* MLXLMCommon */; };
+		A0D9FD122FF41BF30005AF82 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FD112FF41BF30005AF81 /* MLX */; };
 		A0D9FD062FF41BF20005AF74 /* TelemetryClient in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FD052FF41BF20005AF74 /* TelemetryClient */; };
 		A0D9FD082FF41BF20005AF74 /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FD072FF41BF20005AF74 /* TelemetryDeck */; };
 /* End PBXBuildFile section */
@@ -47,6 +48,7 @@
 				A0D9FD062FF41BF20005AF74 /* TelemetryClient in Frameworks */,
 				A0D9FCEB2FF1755C0005AF74 /* MLXLLM in Frameworks */,
 				A0D9FD082FF41BF20005AF74 /* TelemetryDeck in Frameworks */,
+				A0D9FD122FF41BF30005AF82 /* MLX in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -93,6 +95,7 @@
 				A0D9FCEC2FF1755C0005AF74 /* MLXLMCommon */,
 				A0D9FD052FF41BF20005AF74 /* TelemetryClient */,
 				A0D9FD072FF41BF20005AF74 /* TelemetryDeck */,
+				A0D9FD112FF41BF30005AF81 /* MLX */,
 			);
 			productName = Erratly;
 			productReference = A0D9FCD92FF1321E0005AF74 /* Erratly.app */;
@@ -381,6 +384,14 @@
 				minimumVersion = 2.14.1;
 			};
 		};
+		A0D9FD102FF41BF30005AF80 /* XCRemoteSwiftPackageReference "mlx-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ml-explore/mlx-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.29.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -403,6 +414,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A0D9FD042FF41BF20005AF74 /* XCRemoteSwiftPackageReference "SwiftSDK" */;
 			productName = TelemetryDeck;
+		};
+		A0D9FD112FF41BF30005AF81 /* MLX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A0D9FD102FF41BF30005AF80 /* XCRemoteSwiftPackageReference "mlx-swift" */;
+			productName = MLX;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
