@@ -2,6 +2,11 @@ import Cocoa
 
 extension AppDelegate {
     func getSelectedText() {
+        guard currentStatus != .loading, currentStatus != .error else {
+            showModelNotReadyNotification()
+            return
+        }
+
         guard let frontApp = self.previousApp else {
             print("⚠️ No previous app saved")
             return

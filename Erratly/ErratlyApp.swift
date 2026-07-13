@@ -1,6 +1,7 @@
 import Cocoa
 import Carbon
 import ServiceManagement
+import UserNotifications
 
 @main
 struct SpellFixApp {
@@ -48,6 +49,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func setupMenuBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         setStatus(.loading)
+    }
+
+    func showModelNotReadyNotification() {
+        let content = UNMutableNotificationContent()
+        content.title = "Erratly"
+        content.body = strings.label(for: currentStatus)
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
     }
 
     func setStatus(_ status: AppStatus) {
@@ -138,6 +147,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         try? SMAppService.mainApp.register()
 
+        UNUserNotificationCenter.current().delegate = self
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+
         setupMenuBar()
 
         Task {
@@ -180,5 +192,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         print("App is running, listening for double Control tap...")
+    }
+}
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
     }
 }

@@ -40,6 +40,7 @@ actor LLMService {
                 - Fix obvious grammar errors (wrong verb conjugation, wrong accents)
                 - Do NOT change word choice or rephrase
                 - Do NOT add or remove words
+                - Do NOT change anything other than spelling/grammar syntax (spacing, word breaks, punctuation, capitalization, accents)
                 - Return ONLY the corrected text, no explanation
                 """
             if let lang = language {
