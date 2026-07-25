@@ -4,6 +4,17 @@ enum DiffToken {
     case added(String)
 }
 
+struct Correction {
+    let removedText: String
+    let addedText: String
+    var isReverted: Bool = false
+}
+
+enum Segment {
+    case text(String)
+    case correction(Int)
+}
+
 enum Diff {
     static func compute(original: String, corrected: String) -> [DiffToken] {
         let a = tokenize(original)
@@ -38,6 +49,51 @@ enum Diff {
         }
 
         return result.reversed()
+    }
+
+    static func group(_ tokens: [DiffToken]) -> (segments: [Segment], corrections: [Correction]) {
+        var segments: [Segment] = []
+        var corrections: [Correction] = []
+        var i = 0
+        while i < tokens.count {
+            switch tokens[i] {
+            case .unchanged(let text):
+                segments.append(.text(text))
+                i += 1
+            case .removed, .added:
+                var removed = ""
+                var added = ""
+                loop: while i < tokens.count {
+                    switch tokens[i] {
+                    case .removed(let text):
+                        removed += text
+                        i += 1
+                    case .added(let text):
+                        added += text
+                        i += 1
+                    case .unchanged:
+                        break loop
+                    }
+                }
+                corrections.append(Correction(removedText: removed, addedText: added))
+                segments.append(.correction(corrections.count - 1))
+            }
+        }
+        return (segments, corrections)
+    }
+
+    static func finalText(segments: [Segment], corrections: [Correction]) -> String {
+        var result = ""
+        for segment in segments {
+            switch segment {
+            case .text(let text):
+                result += text
+            case .correction(let index):
+                let correction = corrections[index]
+                result += correction.isReverted ? correction.removedText : correction.addedText
+            }
+        }
+        return result
     }
 
     // Splits into alternating runs of word characters and non-word characters

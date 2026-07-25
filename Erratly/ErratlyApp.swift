@@ -103,9 +103,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         original: text,
                         corrected: corrected,
                         selectionBounds: selectionBounds,
-                        onAccept: { [weak self] in
-                            CorrectionHistory.shared.record(original: text, corrected: corrected)
-                            self?.replaceSelectedText(corrected, app: app, previousClipboard: previousClipboard)
+                        onAccept: { [weak self] finalText in
+                            CorrectionHistory.shared.record(original: text, corrected: finalText)
+                            self?.replaceSelectedText(finalText, app: app, previousClipboard: previousClipboard)
                             Analytics.correctionAccepted(language: self?.selectedLanguage)
                             app.activate()
                             self?.diffPanel = nil
