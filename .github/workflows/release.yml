@@ -33,6 +33,10 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      - name: Ad-hoc codesign
+        run: |
+          codesign --force --deep --sign - build/Build/Products/Release/Erratly.app
+
       - name: Package
         run: |
           cd build/Build/Products/Release
