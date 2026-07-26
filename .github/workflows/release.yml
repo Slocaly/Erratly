@@ -37,13 +37,27 @@ jobs:
         run: |
           codesign --force --deep --sign - build/Build/Products/Release/Erratly.app
 
+      - name: Install create-dmg
+        run: brew install create-dmg
+
       - name: Package
         run: |
           staging="$RUNNER_TEMP/dmg-staging"
           mkdir -p "$staging"
           cp -R "build/Build/Products/Release/Erratly.app" "$staging/"
-          ln -s /Applications "$staging/Applications"
-          hdiutil create -volname "Erratly" -srcfolder "$staging" -ov -format UDZO "$GITHUB_WORKSPACE/Erratly.dmg"
+
+          rm -f "$GITHUB_WORKSPACE/Erratly.dmg"
+          create-dmg \
+            --volname "Erratly" \
+            --background "dmg-resources/background.png" \
+            --window-pos 200 120 \
+            --window-size 660 400 \
+            --icon-size 128 \
+            --icon "Erratly.app" 180 178 \
+            --app-drop-link 480 178 \
+            --no-internet-enable \
+            "$GITHUB_WORKSPACE/Erratly.dmg" \
+            "$staging" || test -f "$GITHUB_WORKSPACE/Erratly.dmg"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
