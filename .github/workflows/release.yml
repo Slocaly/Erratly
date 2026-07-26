@@ -39,11 +39,14 @@ jobs:
 
       - name: Package
         run: |
-          cd build/Build/Products/Release
-          zip -r --symlinks "$GITHUB_WORKSPACE/Erratly.zip" Erratly.app
+          staging="$RUNNER_TEMP/dmg-staging"
+          mkdir -p "$staging"
+          cp -R "build/Build/Products/Release/Erratly.app" "$staging/"
+          ln -s /Applications "$staging/Applications"
+          hdiutil create -volname "Erratly" -srcfolder "$staging" -ov -format UDZO "$GITHUB_WORKSPACE/Erratly.dmg"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: Erratly.zip
+          files: Erratly.dmg
           generate_release_notes: true
