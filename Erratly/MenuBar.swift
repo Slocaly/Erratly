@@ -91,6 +91,7 @@ extension AppDelegate {
             Task {
                 do {
                     try await LLMService.shared.loadModel()
+                    print("✅ Backend reloaded (\(AppSettings.shared.backend))")
                     self.setStatus(.ready)
                 } catch {
                     print("❌ Failed to reload backend: \(error)")
