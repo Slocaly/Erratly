@@ -52,6 +52,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setStatus(.loading)
     }
 
+    // As an accessory app, Erratly has no visible menu bar, but AppKit still
+    // needs a main menu to route standard shortcuts (Cmd+V, Cmd+C, ...) to
+    // whichever text field has focus in windows like SettingsWindow —
+    // without this, those shortcuts do nothing but beep.
+    func setupMainMenu() {
+        let mainMenu = NSMenu()
+
+        let editMenuItem = NSMenuItem()
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenuItem.submenu = editMenu
+        mainMenu.addItem(editMenuItem)
+
+        NSApp.mainMenu = mainMenu
+    }
+
     func showModelNotReadyNotification() {
         let content = UNMutableNotificationContent()
         content.title = "Erratly"
@@ -145,6 +164,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         AXIsProcessTrustedWithOptions(options as CFDictionary)
 
         NSApp.setActivationPolicy(.accessory)
+        setupMainMenu()
 
         try? SMAppService.mainApp.register()
 
