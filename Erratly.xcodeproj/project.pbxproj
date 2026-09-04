@@ -9,9 +9,9 @@
 /* Begin PBXBuildFile section */
 		A0D9FCEB2FF1755C0005AF74 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FCEA2FF1755C0005AF74 /* MLXLLM */; };
 		A0D9FCED2FF1755C0005AF74 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FCEC2FF1755C0005AF74 /* MLXLMCommon */; };
-		A0D9FD122FF41BF30005AF82 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FD112FF41BF30005AF81 /* MLX */; };
 		A0D9FD062FF41BF20005AF74 /* TelemetryClient in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FD052FF41BF20005AF74 /* TelemetryClient */; };
 		A0D9FD082FF41BF20005AF74 /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FD072FF41BF20005AF74 /* TelemetryDeck */; };
+		A0D9FD122FF41BF30005AF82 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = A0D9FD112FF41BF30005AF81 /* MLX */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
