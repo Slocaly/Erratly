@@ -23,7 +23,8 @@ There are no tests. The app must be run on Apple Silicon (MLX requires it).
 ## Prerequisites
 
 - **Accessibility permission**: The app prompts on first launch via `AXIsProcessTrustedWithOptions`. Without it, text capture and replacement silently fail.
-- **Local model**: Qwen 2.5 3B must be present at `~/Documents/models/qwen2.5-3b`. The app will load into `.error` status if the model is missing.
+- **Local model** (only required for the Local backend, the default): Qwen 2.5 3B, downloaded automatically from Hugging Face on first launch. The app will load into `.error` status if it can't be loaded.
+- **Remote backend**: requires a base URL, model name, and API key, configured via the menu bar's "Settings…" window. The API key is stored in the macOS Keychain, never in `UserDefaults`.
 
 ## Architecture
 
@@ -37,9 +38,12 @@ The app has two source files:
 - Both fallback paths save and restore the user's clipboard contents.
 - `handleSelectedText` drives the async LLM call and updates the status icon (⏳ loading → ✦ ready → ⟳ processing → ⚠️ error).
 
-**`Erratly/LLMService.swift`** — Singleton wrapping the local MLX model.
-- Loads a `ModelConfiguration` from a local directory path (not a remote download).
-- `correctText` builds a strict prompt instructing the model to fix spelling/grammar only — no rephrasing, no word addition/removal — and returns `temperature: 0.0` output.
+**`Erratly/LLMService.swift`** — Thin coordinator that holds whichever `CorrectionProvider` is active (local or remote) and exposes `loadModel()` / `correctText()` to the rest of the app.
+- **`Erratly/CorrectionProvider.swift`** — the `CorrectionProvider` protocol both backends conform to, plus the shared system prompt builder (spelling/grammar-only rules, language hint, style examples).
+- **`Erratly/LocalCorrectionProvider.swift`** — the on-device MLX model.
+- **`Erratly/RemoteCorrectionProvider.swift`** — calls an OpenAI-compatible `/chat/completions` endpoint using the base URL / API key / model name from `AppSettings`.
+- **`Erratly/AppSettings.swift`** — `UserDefaults`-backed backend selection and remote config; the API key itself lives in the macOS Keychain via `Erratly/KeychainHelper.swift`.
+- **`Erratly/SettingsWindow.swift`** — the "Settings…" window (menu bar) for choosing local vs. remote and entering remote config.
 
 ## Dependencies
 

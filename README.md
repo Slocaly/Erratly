@@ -10,7 +10,7 @@
 
 Select any text, double-tap <kbd>Control</kbd>, and Erratly silently corrects spelling and grammar in place. It works in any app: Notes, Slack, your browser, your IDE.
 
-All corrections run locally on your machine using a small language model — nothing is sent to the cloud.
+By default, corrections run locally on your machine using a small language model — nothing leaves your Mac. You can optionally connect a remote API (OpenAI, or any OpenAI-compatible endpoint) with your own API key instead.
 
 ## Requirements
 
@@ -47,3 +47,7 @@ It does **not** rephrase, rewrite, or change your word choices — only fixes cl
 ## Model
 
 Erratly uses [Qwen2.5-3B-Instruct](https://huggingface.co/mlx-community/Qwen2.5-3B-Instruct-4bit) (4-bit quantized), running locally via [MLX](https://github.com/ml-explore/mlx-swift). The model is downloaded from Hugging Face on first launch and cached on your machine — no internet connection is needed after that.
+
+## Remote API (optional)
+
+Click the menu bar icon → **Settings…**, choose **Remote API**, and enter a base URL, model name, and your API key. The key is stored in the macOS Keychain — it's never written to disk in plain text. Once saved, corrections run against that API instead of the local model.
