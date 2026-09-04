@@ -9,7 +9,10 @@ extension AppDelegate {
         statusMenuItem.isEnabled = false
         menu.addItem(statusMenuItem)
 
-        let modelItem = NSMenuItem(title: "\(s.modelPrefix): \(LLMService.modelName)", action: nil, keyEquivalent: "")
+        let modelName: String = AppSettings.shared.backend == .local
+            ? LocalCorrectionProvider.modelName
+            : AppSettings.shared.remoteModelName
+        let modelItem = NSMenuItem(title: "\(s.modelPrefix): \(modelName)", action: nil, keyEquivalent: "")
         modelItem.isEnabled = false
         menu.addItem(modelItem)
 
