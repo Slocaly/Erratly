@@ -16,6 +16,10 @@ extension AppDelegate {
         modelItem.isEnabled = false
         menu.addItem(modelItem)
 
+        let settingsItem = NSMenuItem(title: s.settings, action: #selector(openSettings), keyEquivalent: "")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
         menu.addItem(.separator())
 
         let reviewItem = NSMenuItem(title: s.reviewBeforeApplying, action: #selector(toggleDiffPanel), keyEquivalent: "")
@@ -75,5 +79,26 @@ extension AppDelegate {
     @objc func clearCorrectionHistory() {
         CorrectionHistory.shared.clear()
         updateMenu(status: currentStatus)
+    }
+
+    @objc func openSettings() {
+        settingsWindow?.window?.close()
+        settingsWindow = SettingsWindow(onSave: { [weak self] configChanged in
+            guard let self else { return }
+            self.updateMenu(status: self.currentStatus)
+            guard configChanged else { return }
+            self.setStatus(.loading)
+            Task {
+                do {
+                    try await LLMService.shared.loadModel()
+                    self.setStatus(.ready)
+                } catch {
+                    print("❌ Failed to reload backend: \(error)")
+                    self.setStatus(.error)
+                }
+            }
+        })
+        settingsWindow?.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 }

@@ -21,6 +21,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
     var currentStatus: AppStatus = .loading
     var diffPanel: DiffPanel?
+    var settingsWindow: SettingsWindow?
 
     static let languages: [String] = [
         "English", "French", "Spanish", "German", "Italian",
