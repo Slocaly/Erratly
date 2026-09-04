@@ -15,6 +15,7 @@ actor LLMService {
         let provider: CorrectionProvider = AppSettings.shared.backend == .local
             ? LocalCorrectionProvider()
             : RemoteCorrectionProvider()
+        activeProvider = nil
         try await provider.prepare()
         activeProvider = provider
     }

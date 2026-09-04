@@ -16,7 +16,7 @@ enum RemoteAPIError: Error, LocalizedError {
     }
 }
 
-enum RemoteAPIFormat {
+nonisolated enum RemoteAPIFormat {
     static func buildRequestBody(model: String, systemPrompt: String, userText: String) -> [String: Any] {
         [
             "model": model,
@@ -55,7 +55,8 @@ actor RemoteCorrectionProvider: CorrectionProvider {
         guard let apiKey = settings.remoteAPIKey, !apiKey.isEmpty else {
             throw RemoteAPIError.missingSettings
         }
-        guard let url = URL(string: "\(settings.remoteBaseURL)/chat/completions") else {
+        guard let url = URL(string: "\(settings.remoteBaseURL)/chat/completions"),
+              url.scheme != nil, url.host != nil else {
             throw RemoteAPIError.invalidURL
         }
 

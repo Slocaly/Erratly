@@ -1,11 +1,11 @@
 import Foundation
 
-protocol CorrectionProvider {
+nonisolated protocol CorrectionProvider {
     func prepare() async throws
     func correctText(_ text: String, language: String?, examples: [CorrectionPair]) async throws -> String
 }
 
-func buildCorrectionSystemPrompt(language: String?, examples: [CorrectionPair]) -> String {
+nonisolated func buildCorrectionSystemPrompt(language: String?, examples: [CorrectionPair]) -> String {
     var prompt = """
         You are a spelling and grammar corrector. Your rules:
         - Fix spelling mistakes only

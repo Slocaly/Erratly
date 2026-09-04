@@ -1,10 +1,11 @@
 import Foundation
 import Security
 
-enum KeychainHelper {
+nonisolated enum KeychainHelper {
     private static let service = "com.erratly.app"
 
-    static func set(_ value: String, forAccount account: String) {
+    @discardableResult
+    static func set(_ value: String, forAccount account: String) -> Bool {
         let data = Data(value.utf8)
         let baseQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -14,7 +15,11 @@ enum KeychainHelper {
         SecItemDelete(baseQuery as CFDictionary)
         var attributes = baseQuery
         attributes[kSecValueData as String] = data
-        SecItemAdd(attributes as CFDictionary, nil)
+        let status = SecItemAdd(attributes as CFDictionary, nil)
+        if status != errSecSuccess {
+            print("⚠️ Keychain write failed for account \(account): OSStatus \(status)")
+        }
+        return status == errSecSuccess
     }
 
     static func get(forAccount account: String) -> String? {
@@ -31,12 +36,17 @@ enum KeychainHelper {
         return String(data: data, encoding: .utf8)
     }
 
-    static func delete(forAccount account: String) {
+    @discardableResult
+    static func delete(forAccount account: String) -> Bool {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account
         ]
-        SecItemDelete(query as CFDictionary)
+        let status = SecItemDelete(query as CFDictionary)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            print("⚠️ Keychain delete failed for account \(account): OSStatus \(status)")
+        }
+        return status == errSecSuccess || status == errSecItemNotFound
     }
 }

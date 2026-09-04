@@ -132,9 +132,12 @@ final class SettingsWindow: NSWindowController {
 
     @objc private func saveAction() {
         let newBackend: Backend = remoteRadio.state == .on ? .remote : .local
-        let newBaseURL = baseURLField.stringValue
-        let newModelName = modelNameField.stringValue
-        let newAPIKey = apiKeyField.stringValue
+        var newBaseURL = baseURLField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if newBaseURL.hasSuffix("/") {
+            newBaseURL.removeLast()
+        }
+        let newModelName = modelNameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newAPIKey = apiKeyField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
 
         let changed = newBackend != initialBackend
             || (newBackend == .remote && (newBaseURL != initialBaseURL || newModelName != initialModelName || newAPIKey != (initialAPIKey ?? "")))

@@ -5,7 +5,7 @@ enum Backend: String {
     case remote
 }
 
-final class AppSettings {
+nonisolated final class AppSettings: @unchecked Sendable {
     static let shared = AppSettings()
     private init() {}
 
