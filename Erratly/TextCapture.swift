@@ -3,7 +3,6 @@ import Cocoa
 extension AppDelegate {
     func getSelectedText() {
         guard currentStatus != .loading, currentStatus != .error else {
-            print("⚠️ Correction blocked — status is \(currentStatus), not ready")
             showModelNotReadyNotification()
             return
         }
