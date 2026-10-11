@@ -10,6 +10,7 @@ final class SettingsWindow: NSWindowController {
     private let initialModelName: String
     private let initialAPIKey: String?
     private let initialShortcut: KeyShortcut?
+    private let initialPanelSize: ReviewPanelSize
 
     init(onSave: @escaping (Bool) -> Void) {
         self.onSave = onSave
@@ -18,9 +19,10 @@ final class SettingsWindow: NSWindowController {
         self.initialModelName = AppSettings.shared.remoteModelName
         self.initialAPIKey = AppSettings.shared.remoteAPIKey
         self.initialShortcut = AppSettings.shared.shortcut
+        self.initialPanelSize = AppSettings.shared.reviewPanelSize
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 620),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 690),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -43,9 +45,10 @@ final class SettingsWindow: NSWindowController {
             apiKey: initialAPIKey ?? "",
             modelName: initialModelName,
             shortcut: initialShortcut,
+            panelSize: initialPanelSize,
             onCancel: { [weak self] in self?.window?.close() },
-            onSave: { [weak self] backend, baseURL, apiKey, modelName, shortcut in
-                self?.save(backend: backend, baseURL: baseURL, apiKey: apiKey, modelName: modelName, shortcut: shortcut)
+            onSave: { [weak self] backend, baseURL, apiKey, modelName, shortcut, panelSize in
+                self?.save(backend: backend, baseURL: baseURL, apiKey: apiKey, modelName: modelName, shortcut: shortcut, panelSize: panelSize)
             }
         )
         window.contentView = NSHostingView(rootView: view)
@@ -54,7 +57,7 @@ final class SettingsWindow: NSWindowController {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    private func save(backend newBackend: Backend, baseURL: String, apiKey: String, modelName: String, shortcut: KeyShortcut?) {
+    private func save(backend newBackend: Backend, baseURL: String, apiKey: String, modelName: String, shortcut: KeyShortcut?, panelSize: ReviewPanelSize) {
         var newBaseURL = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         if newBaseURL.hasSuffix("/") {
             newBaseURL.removeLast()
@@ -70,6 +73,7 @@ final class SettingsWindow: NSWindowController {
         AppSettings.shared.remoteModelName = newModelName
         AppSettings.shared.remoteAPIKey = newAPIKey.isEmpty ? nil : newAPIKey
         AppSettings.shared.shortcut = shortcut
+        AppSettings.shared.reviewPanelSize = panelSize
 
         window?.close()
         onSave(changed)
@@ -93,9 +97,10 @@ private struct SettingsView: View {
     @State var apiKey: String
     @State var modelName: String
     @State var shortcut: KeyShortcut?
+    @State var panelSize: ReviewPanelSize
 
     let onCancel: () -> Void
-    let onSave: (Backend, String, String, String, KeyShortcut?) -> Void
+    let onSave: (Backend, String, String, String, KeyShortcut?, ReviewPanelSize) -> Void
 
     private var remoteEnabled: Bool { backend == .remote }
 
@@ -108,7 +113,7 @@ private struct SettingsView: View {
                     .padding(.top, 36)
                     .padding(.bottom, 24)
 
-                BackendSwitch(selection: $backend)
+                PillSwitch(selection: $backend, options: [(.local, "Local (on-device)"), (.remote, "Remote API")])
                     .padding(.bottom, 22)
 
                 VStack(alignment: .leading, spacing: 14) {
@@ -123,6 +128,14 @@ private struct SettingsView: View {
                 ShortcutRecorder(shortcut: $shortcut)
                     .padding(.top, 22)
 
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Review panel size")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(SettingsTheme.textSecondary)
+                    PillSwitch(selection: $panelSize, options: ReviewPanelSize.allCases.map { ($0, $0.title) })
+                }
+                .padding(.top, 22)
+
                 Spacer(minLength: 0)
 
                 HStack(spacing: 10) {
@@ -130,7 +143,7 @@ private struct SettingsView: View {
                     Button("Cancel", action: onCancel)
                         .buttonStyle(QuietButtonStyle())
                         .keyboardShortcut(.cancelAction)
-                    Button("Save") { onSave(backend, baseURL, apiKey, modelName, shortcut) }
+                    Button("Save") { onSave(backend, baseURL, apiKey, modelName, shortcut, panelSize) }
                         .buttonStyle(AccentButtonStyle())
                         .keyboardShortcut(.defaultAction)
                 }
@@ -138,7 +151,7 @@ private struct SettingsView: View {
             .padding(.horizontal, 28)
             .padding(.bottom, 24)
         }
-        .frame(width: 400, height: 620)
+        .frame(width: 400, height: 690)
         .preferredColorScheme(.dark)
     }
 
@@ -171,21 +184,23 @@ private struct SettingsView: View {
     }
 }
 
-private struct BackendSwitch: View {
-    @Binding var selection: Backend
+private struct PillSwitch<Value: Hashable>: View {
+    @Binding var selection: Value
+    let options: [(Value, String)]
     @Namespace private var highlight
 
     var body: some View {
         HStack(spacing: 0) {
-            option("Local (on-device)", value: .local)
-            option("Remote API", value: .remote)
+            ForEach(options, id: \.0) { value, title in
+                option(title, value: value)
+            }
         }
         .padding(3)
         .background(Capsule().fill(Color.white.opacity(0.05)))
         .overlay(Capsule().strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
     }
 
-    private func option(_ title: String, value: Backend) -> some View {
+    private func option(_ title: String, value: Value) -> some View {
         let selected = selection == value
         return Text(title)
             .font(.system(size: 13, weight: selected ? .semibold : .regular))

@@ -86,7 +86,7 @@ private class HighlightedTextView: NSTextView {
     private var hoveredCorrection: (index: Int, rect: NSRect)?
     private var trackingArea: NSTrackingArea?
 
-    private static let font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+    var diffFont = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
 
     var finalText: String {
         Diff.finalText(segments: segments, corrections: corrections)
@@ -99,7 +99,7 @@ private class HighlightedTextView: NSTextView {
     }
 
     private func rebuild() {
-        let (attrString, highlights, correctionRanges) = Self.buildContent(segments: segments, corrections: corrections)
+        let (attrString, highlights, correctionRanges) = Self.buildContent(segments: segments, corrections: corrections, font: diffFont)
         self.highlights = highlights
         self.correctionRanges = correctionRanges
         textStorage?.setAttributedString(attrString)
@@ -173,7 +173,7 @@ private class HighlightedTextView: NSTextView {
         return NSRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
     }
 
-    private static func buildContent(segments: [Segment], corrections: [Correction]) -> (NSAttributedString, [(NSRange, NSColor)], [Int: NSRange]) {
+    private static func buildContent(segments: [Segment], corrections: [Correction], font: NSFont) -> (NSAttributedString, [(NSRange, NSColor)], [Int: NSRange]) {
         let result = NSMutableAttributedString()
         var highlights: [(NSRange, NSColor)] = []
         var correctionRanges: [Int: NSRange] = [:]
@@ -281,8 +281,9 @@ class DiffPanel: NSWindowController, NSWindowDelegate {
     fileprivate static let fadedInkColor = NSColor(calibratedRed: 0.16, green: 0.12, blue: 0.08, alpha: 0.55)
 
     init(original: String, corrected: String, selectionBounds: CGRect?, onAccept: @escaping (String) -> Void, onCancel: @escaping () -> Void) {
+        let size = AppSettings.shared.reviewPanelSize
         let panel = FloatingPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 220),
+            contentRect: NSRect(origin: .zero, size: size.windowSize),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -300,7 +301,7 @@ class DiffPanel: NSWindowController, NSWindowDelegate {
         self.onAccept = onAccept
         self.onCancel = onCancel
         panel.delegate = self
-        setupUI(original: original, corrected: corrected)
+        setupUI(original: original, corrected: corrected, fontSize: size.fontSize)
         position(near: selectionBounds)
     }
 
@@ -312,7 +313,7 @@ class DiffPanel: NSWindowController, NSWindowDelegate {
 
     // MARK: - UI
 
-    private func setupUI(original: String, corrected: String) {
+    private func setupUI(original: String, corrected: String, fontSize: CGFloat) {
         guard let contentView = window?.contentView else { return }
 
         let bounds = contentView.bounds
@@ -364,6 +365,7 @@ class DiffPanel: NSWindowController, NSWindowDelegate {
         textView.backgroundColor = .clear
         textView.drawsBackground = false
         textView.textContainerInset = NSSize(width: 4, height: 6)
+        textView.diffFont = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
 
         let tokens = Diff.compute(original: original, corrected: corrected)
         let (segments, corrections) = Diff.group(tokens)
