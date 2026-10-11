@@ -1,13 +1,8 @@
 import Cocoa
+import SwiftUI
 
 final class SettingsWindow: NSWindowController {
     private let onSave: (Bool) -> Void
-
-    private var localRadio: NSButton!
-    private var remoteRadio: NSButton!
-    private var baseURLField: NSTextField!
-    private var apiKeyField: NSSecureTextField!
-    private var modelNameField: NSTextField!
 
     private let initialBackend: Backend
     private let initialBaseURL: String
@@ -22,122 +17,46 @@ final class SettingsWindow: NSWindowController {
         self.initialAPIKey = AppSettings.shared.remoteAPIKey
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 300),
-            styleMask: [.titled, .closable],
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 520),
+            styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "Erratly Settings"
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = true
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.backgroundColor = NSColor(SettingsTheme.bgBottom)
+        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        window.standardWindowButton(.zoomButton)?.isHidden = true
         window.isReleasedWhenClosed = false
-        window.center()
 
         super.init(window: window)
-        setupUI()
+
+        let view = SettingsView(
+            backend: initialBackend,
+            baseURL: initialBaseURL,
+            apiKey: initialAPIKey ?? "",
+            modelName: initialModelName,
+            onCancel: { [weak self] in self?.window?.close() },
+            onSave: { [weak self] backend, baseURL, apiKey, modelName in
+                self?.save(backend: backend, baseURL: baseURL, apiKey: apiKey, modelName: modelName)
+            }
+        )
+        window.contentView = NSHostingView(rootView: view)
+        window.center()
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    private func setupUI() {
-        guard let contentView = window?.contentView else { return }
-        let padding: CGFloat = 20
-        let fieldWidth: CGFloat = 360 - padding * 2
-        let rowGap: CGFloat = 8
-        let groupGap: CGFloat = 16
-        let labelFieldGap: CGFloat = 4
-        var y: CGFloat = 300 - padding
-
-        y -= 20
-        let localRadio = NSButton(radioButtonWithTitle: "Local (on-device)", target: self, action: #selector(backendChanged))
-        localRadio.frame = NSRect(x: padding, y: y, width: fieldWidth, height: 20)
-        contentView.addSubview(localRadio)
-        self.localRadio = localRadio
-        y -= rowGap
-
-        y -= 20
-        let remoteRadio = NSButton(radioButtonWithTitle: "Remote API", target: self, action: #selector(backendChanged))
-        remoteRadio.frame = NSRect(x: padding, y: y, width: fieldWidth, height: 20)
-        contentView.addSubview(remoteRadio)
-        self.remoteRadio = remoteRadio
-        y -= groupGap
-
-        y -= 16
-        let baseURLLabel = NSTextField(labelWithString: "Base URL")
-        baseURLLabel.frame = NSRect(x: padding, y: y, width: fieldWidth, height: 16)
-        contentView.addSubview(baseURLLabel)
-        y -= labelFieldGap
-
-        y -= 24
-        let baseURLField = NSTextField(frame: NSRect(x: padding, y: y, width: fieldWidth, height: 24))
-        baseURLField.placeholderString = "https://api.openai.com/v1"
-        contentView.addSubview(baseURLField)
-        self.baseURLField = baseURLField
-        y -= groupGap
-
-        y -= 16
-        let apiKeyLabel = NSTextField(labelWithString: "API Key")
-        apiKeyLabel.frame = NSRect(x: padding, y: y, width: fieldWidth, height: 16)
-        contentView.addSubview(apiKeyLabel)
-        y -= labelFieldGap
-
-        y -= 24
-        let apiKeyField = NSSecureTextField(frame: NSRect(x: padding, y: y, width: fieldWidth, height: 24))
-        contentView.addSubview(apiKeyField)
-        self.apiKeyField = apiKeyField
-        y -= groupGap
-
-        y -= 16
-        let modelNameLabel = NSTextField(labelWithString: "Model Name")
-        modelNameLabel.frame = NSRect(x: padding, y: y, width: fieldWidth, height: 16)
-        contentView.addSubview(modelNameLabel)
-        y -= labelFieldGap
-
-        y -= 24
-        let modelNameField = NSTextField(frame: NSRect(x: padding, y: y, width: fieldWidth, height: 24))
-        modelNameField.placeholderString = "gpt-4o-mini"
-        contentView.addSubview(modelNameField)
-        self.modelNameField = modelNameField
-
-        let cancelButton = NSButton(title: "Cancel", target: self, action: #selector(cancelAction))
-        cancelButton.frame = NSRect(x: 360 - padding - 160, y: padding, width: 75, height: 24)
-        cancelButton.keyEquivalent = "\u{1B}"
-        contentView.addSubview(cancelButton)
-
-        let saveButton = NSButton(title: "Save", target: self, action: #selector(saveAction))
-        saveButton.frame = NSRect(x: 360 - padding - 80, y: padding, width: 80, height: 24)
-        saveButton.keyEquivalent = "\r"
-        contentView.addSubview(saveButton)
-
-        localRadio.state = initialBackend == .local ? .on : .off
-        remoteRadio.state = initialBackend == .remote ? .on : .off
-        baseURLField.stringValue = initialBaseURL
-        apiKeyField.stringValue = initialAPIKey ?? ""
-        modelNameField.stringValue = initialModelName
-        updateFieldsEnabled()
-    }
-
-    private func updateFieldsEnabled() {
-        let remoteEnabled = remoteRadio.state == .on
-        baseURLField.isEnabled = remoteEnabled
-        apiKeyField.isEnabled = remoteEnabled
-        modelNameField.isEnabled = remoteEnabled
-    }
-
-    @objc private func backendChanged() {
-        updateFieldsEnabled()
-    }
-
-    @objc private func cancelAction() {
-        window?.close()
-    }
-
-    @objc private func saveAction() {
-        let newBackend: Backend = remoteRadio.state == .on ? .remote : .local
-        var newBaseURL = baseURLField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func save(backend newBackend: Backend, baseURL: String, apiKey: String, modelName: String) {
+        var newBaseURL = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         if newBaseURL.hasSuffix("/") {
             newBaseURL.removeLast()
         }
-        let newModelName = modelNameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let newAPIKey = apiKeyField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newModelName = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newAPIKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
 
         let changed = newBackend != initialBackend
             || (newBackend == .remote && (newBaseURL != initialBaseURL || newModelName != initialModelName || newAPIKey != (initialAPIKey ?? "")))
@@ -149,5 +68,194 @@ final class SettingsWindow: NSWindowController {
 
         window?.close()
         onSave(changed)
+    }
+}
+
+// Mirrors the palette in dmg-resources/make_background.py so the settings
+// window matches the install window.
+private enum SettingsTheme {
+    static let bgTop = Color(red: 13 / 255, green: 12 / 255, blue: 18 / 255)
+    static let bgBottom = Color(red: 7 / 255, green: 7 / 255, blue: 10 / 255)
+    static let accent = Color(red: 198 / 255, green: 178 / 255, blue: 245 / 255)
+    static let accentSoft = Color(red: 150 / 255, green: 132 / 255, blue: 200 / 255)
+    static let textPrimary = Color(red: 240 / 255, green: 238 / 255, blue: 245 / 255)
+    static let textSecondary = Color(red: 150 / 255, green: 148 / 255, blue: 158 / 255)
+}
+
+private struct SettingsView: View {
+    @State var backend: Backend
+    @State var baseURL: String
+    @State var apiKey: String
+    @State var modelName: String
+
+    let onCancel: () -> Void
+    let onSave: (Backend, String, String, String) -> Void
+
+    private var remoteEnabled: Bool { backend == .remote }
+
+    var body: some View {
+        ZStack {
+            background
+
+            VStack(spacing: 0) {
+                header
+                    .padding(.top, 36)
+                    .padding(.bottom, 24)
+
+                BackendSwitch(selection: $backend)
+                    .padding(.bottom, 22)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    StyledField(label: "Base URL", placeholder: "https://api.openai.com/v1", text: $baseURL)
+                    StyledField(label: "API Key", placeholder: "sk-…", text: $apiKey, secure: true)
+                    StyledField(label: "Model Name", placeholder: "gpt-4o-mini", text: $modelName)
+                }
+                .disabled(!remoteEnabled)
+                .opacity(remoteEnabled ? 1 : 0.4)
+                .animation(.easeOut(duration: 0.15), value: remoteEnabled)
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 10) {
+                    Spacer()
+                    Button("Cancel", action: onCancel)
+                        .buttonStyle(QuietButtonStyle())
+                        .keyboardShortcut(.cancelAction)
+                    Button("Save") { onSave(backend, baseURL, apiKey, modelName) }
+                        .buttonStyle(AccentButtonStyle())
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(.horizontal, 28)
+            .padding(.bottom, 24)
+        }
+        .frame(width: 400, height: 520)
+        .preferredColorScheme(.dark)
+    }
+
+    private var background: some View {
+        ZStack {
+            LinearGradient(colors: [SettingsTheme.bgTop, SettingsTheme.bgBottom], startPoint: .top, endPoint: .bottom)
+            RadialGradient(
+                colors: [SettingsTheme.accentSoft.opacity(0.28), .clear],
+                center: UnitPoint(x: 0.5, y: 0.2),
+                startRadius: 0,
+                endRadius: 240
+            )
+        }
+        .ignoresSafeArea()
+    }
+
+    private var header: some View {
+        VStack(spacing: 10) {
+            Image("AppIconRound")
+                .resizable()
+                .frame(width: 56, height: 56)
+                .shadow(color: SettingsTheme.accentSoft.opacity(0.5), radius: 16)
+            Text("Erratly")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(SettingsTheme.textPrimary)
+            Text("Choose where corrections run")
+                .font(.system(size: 13))
+                .foregroundStyle(SettingsTheme.textSecondary)
+        }
+    }
+}
+
+private struct BackendSwitch: View {
+    @Binding var selection: Backend
+    @Namespace private var highlight
+
+    var body: some View {
+        HStack(spacing: 0) {
+            option("Local (on-device)", value: .local)
+            option("Remote API", value: .remote)
+        }
+        .padding(3)
+        .background(Capsule().fill(Color.white.opacity(0.05)))
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
+    }
+
+    private func option(_ title: String, value: Backend) -> some View {
+        let selected = selection == value
+        return Text(title)
+            .font(.system(size: 13, weight: selected ? .semibold : .regular))
+            .foregroundStyle(selected ? SettingsTheme.bgBottom : SettingsTheme.textSecondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 7)
+            .background {
+                if selected {
+                    Capsule()
+                        .fill(SettingsTheme.accent)
+                        .matchedGeometryEffect(id: "highlight", in: highlight)
+                }
+            }
+            .contentShape(Capsule())
+            .onTapGesture {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { selection = value }
+            }
+    }
+}
+
+private struct StyledField: View {
+    let label: String
+    let placeholder: String
+    @Binding var text: String
+    var secure = false
+
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(SettingsTheme.textSecondary)
+
+            Group {
+                if secure {
+                    SecureField("", text: $text, prompt: prompt)
+                } else {
+                    TextField("", text: $text, prompt: prompt)
+                }
+            }
+            .textFieldStyle(.plain)
+            .font(.system(size: 13))
+            .foregroundStyle(SettingsTheme.textPrimary)
+            .focused($focused)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(focused ? SettingsTheme.accent.opacity(0.8) : Color.white.opacity(0.1), lineWidth: 1)
+            )
+            .animation(.easeOut(duration: 0.15), value: focused)
+        }
+    }
+
+    private var prompt: Text {
+        Text(placeholder).foregroundStyle(SettingsTheme.textSecondary.opacity(0.6))
+    }
+}
+
+private struct AccentButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(SettingsTheme.bgBottom)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 7)
+            .background(Capsule().fill(SettingsTheme.accent.opacity(configuration.isPressed ? 0.75 : 1)))
+    }
+}
+
+private struct QuietButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13))
+            .foregroundStyle(SettingsTheme.textSecondary.opacity(configuration.isPressed ? 0.6 : 1))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .contentShape(Capsule())
     }
 }
