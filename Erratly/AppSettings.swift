@@ -30,6 +30,21 @@ nonisolated final class AppSettings: @unchecked Sendable {
         set { UserDefaults.standard.set(newValue, forKey: "remoteModelName") }
     }
 
+    /// nil means the default double Control tap.
+    var shortcut: KeyShortcut? {
+        get {
+            guard let data = UserDefaults.standard.data(forKey: "shortcut") else { return nil }
+            return try? JSONDecoder().decode(KeyShortcut.self, from: data)
+        }
+        set {
+            if let value = newValue, let data = try? JSONEncoder().encode(value) {
+                UserDefaults.standard.set(data, forKey: "shortcut")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "shortcut")
+            }
+        }
+    }
+
     var remoteAPIKey: String? {
         get { KeychainHelper.get(forAccount: apiKeyAccount) }
         set {

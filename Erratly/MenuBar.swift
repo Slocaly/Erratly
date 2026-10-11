@@ -85,6 +85,7 @@ extension AppDelegate {
         settingsWindow?.window?.close()
         settingsWindow = SettingsWindow(onSave: { [weak self] configChanged in
             guard let self else { return }
+            HotkeyManager.shared.reload()
             self.updateMenu(status: self.currentStatus)
             guard configChanged else { return }
             self.setStatus(.loading)

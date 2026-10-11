@@ -1,5 +1,6 @@
 import Cocoa
 import SwiftUI
+import Carbon
 
 final class SettingsWindow: NSWindowController {
     private let onSave: (Bool) -> Void
@@ -8,6 +9,7 @@ final class SettingsWindow: NSWindowController {
     private let initialBaseURL: String
     private let initialModelName: String
     private let initialAPIKey: String?
+    private let initialShortcut: KeyShortcut?
 
     init(onSave: @escaping (Bool) -> Void) {
         self.onSave = onSave
@@ -15,9 +17,10 @@ final class SettingsWindow: NSWindowController {
         self.initialBaseURL = AppSettings.shared.remoteBaseURL
         self.initialModelName = AppSettings.shared.remoteModelName
         self.initialAPIKey = AppSettings.shared.remoteAPIKey
+        self.initialShortcut = AppSettings.shared.shortcut
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 520),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 620),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -39,9 +42,10 @@ final class SettingsWindow: NSWindowController {
             baseURL: initialBaseURL,
             apiKey: initialAPIKey ?? "",
             modelName: initialModelName,
+            shortcut: initialShortcut,
             onCancel: { [weak self] in self?.window?.close() },
-            onSave: { [weak self] backend, baseURL, apiKey, modelName in
-                self?.save(backend: backend, baseURL: baseURL, apiKey: apiKey, modelName: modelName)
+            onSave: { [weak self] backend, baseURL, apiKey, modelName, shortcut in
+                self?.save(backend: backend, baseURL: baseURL, apiKey: apiKey, modelName: modelName, shortcut: shortcut)
             }
         )
         window.contentView = NSHostingView(rootView: view)
@@ -50,7 +54,7 @@ final class SettingsWindow: NSWindowController {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    private func save(backend newBackend: Backend, baseURL: String, apiKey: String, modelName: String) {
+    private func save(backend newBackend: Backend, baseURL: String, apiKey: String, modelName: String, shortcut: KeyShortcut?) {
         var newBaseURL = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         if newBaseURL.hasSuffix("/") {
             newBaseURL.removeLast()
@@ -65,6 +69,7 @@ final class SettingsWindow: NSWindowController {
         AppSettings.shared.remoteBaseURL = newBaseURL
         AppSettings.shared.remoteModelName = newModelName
         AppSettings.shared.remoteAPIKey = newAPIKey.isEmpty ? nil : newAPIKey
+        AppSettings.shared.shortcut = shortcut
 
         window?.close()
         onSave(changed)
@@ -87,9 +92,10 @@ private struct SettingsView: View {
     @State var baseURL: String
     @State var apiKey: String
     @State var modelName: String
+    @State var shortcut: KeyShortcut?
 
     let onCancel: () -> Void
-    let onSave: (Backend, String, String, String) -> Void
+    let onSave: (Backend, String, String, String, KeyShortcut?) -> Void
 
     private var remoteEnabled: Bool { backend == .remote }
 
@@ -114,6 +120,9 @@ private struct SettingsView: View {
                 .opacity(remoteEnabled ? 1 : 0.4)
                 .animation(.easeOut(duration: 0.15), value: remoteEnabled)
 
+                ShortcutRecorder(shortcut: $shortcut)
+                    .padding(.top, 22)
+
                 Spacer(minLength: 0)
 
                 HStack(spacing: 10) {
@@ -121,7 +130,7 @@ private struct SettingsView: View {
                     Button("Cancel", action: onCancel)
                         .buttonStyle(QuietButtonStyle())
                         .keyboardShortcut(.cancelAction)
-                    Button("Save") { onSave(backend, baseURL, apiKey, modelName) }
+                    Button("Save") { onSave(backend, baseURL, apiKey, modelName, shortcut) }
                         .buttonStyle(AccentButtonStyle())
                         .keyboardShortcut(.defaultAction)
                 }
@@ -129,7 +138,7 @@ private struct SettingsView: View {
             .padding(.horizontal, 28)
             .padding(.bottom, 24)
         }
-        .frame(width: 400, height: 520)
+        .frame(width: 400, height: 620)
         .preferredColorScheme(.dark)
     }
 
@@ -235,6 +244,88 @@ private struct StyledField: View {
 
     private var prompt: Text {
         Text(placeholder).foregroundStyle(SettingsTheme.textSecondary.opacity(0.6))
+    }
+}
+
+private struct ShortcutRecorder: View {
+    @Binding var shortcut: KeyShortcut?
+
+    @State private var recording = false
+    @State private var monitor: Any?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Shortcut")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(SettingsTheme.textSecondary)
+
+            HStack(spacing: 8) {
+                Button(action: { recording ? stopRecording() : startRecording() }) {
+                    Text(title)
+                        .font(.system(size: 13, weight: recording ? .regular : .medium))
+                        .foregroundStyle(recording ? SettingsTheme.textSecondary : SettingsTheme.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(recording ? SettingsTheme.accent.opacity(0.8) : Color.white.opacity(0.1), lineWidth: 1)
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .animation(.easeOut(duration: 0.15), value: recording)
+
+                if shortcut != nil {
+                    Button("Use double ⌃") {
+                        stopRecording()
+                        shortcut = nil
+                    }
+                    .buttonStyle(QuietButtonStyle())
+                }
+            }
+
+            Text(recording ? "Press a key combination with ⌘, ⌥ or ⌃ — Esc to cancel" : "Add ⇧ to flip “Review before applying”")
+                .font(.system(size: 11))
+                .foregroundStyle(SettingsTheme.textSecondary.opacity(0.8))
+        }
+        .onDisappear { stopRecording() }
+    }
+
+    private var title: String {
+        if recording { return "Type shortcut…" }
+        return shortcut?.displayString ?? "⌃ ⌃  (double tap)"
+    }
+
+    private func startRecording() {
+        guard !recording else { return }
+        recording = true
+        // The current hot key would otherwise swallow the keystroke if the user
+        // types the same combination again.
+        HotkeyManager.shared.suspend()
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let flags = event.modifierFlags.intersection(KeyShortcut.relevantModifiers)
+            if Int(event.keyCode) == kVK_Escape && flags.isEmpty {
+                stopRecording()
+            } else if let recorded = KeyShortcut(event: event) {
+                shortcut = recorded
+                stopRecording()
+            } else {
+                NSSound.beep()
+            }
+            return nil
+        }
+    }
+
+    private func stopRecording() {
+        if let monitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        monitor = nil
+        if recording {
+            recording = false
+            HotkeyManager.shared.resume()
+        }
     }
 }
 

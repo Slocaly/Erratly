@@ -32,7 +32,8 @@ The app has two source files:
 
 **`Erratly/ErratlyApp.swift`** — Entry point and all system interaction logic.
 - `SpellFixApp` / `AppDelegate`: Manages the NSStatusBar icon and global Control key event monitor.
-- The double-tap detection window is 400ms (`lastControlPressTime` comparison).
+- The double-tap detection window is 400ms (`lastControlPressTime` comparison). It's only active when no custom shortcut is set.
+- **`Erratly/Shortcut.swift`** — `KeyShortcut` (a custom key combo, persisted in `AppSettings.shortcut`; nil = double Control) and `HotkeyManager`, which registers it as a Carbon global hot key, plus a Shift variant that flips the review panel the way double ⌃⇧ does.
 - Text capture tries Accessibility API (`kAXSelectedTextAttribute`) first; falls back to simulating Cmd+C and reading the clipboard.
 - Text replacement tries AX (`kAXSelectedTextAttribute` write) first; falls back to writing to clipboard and simulating Cmd+V.
 - Both fallback paths save and restore the user's clipboard contents.

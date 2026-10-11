@@ -183,7 +183,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        HotkeyManager.shared.onTrigger = { [weak self] withShift in
+            guard let self else { return }
+            print("🎉 Custom shortcut triggered!")
+            self.previousApp = NSWorkspace.shared.frontmostApplication
+            self.isShiftTrigger = withShift
+            self.getSelectedText()
+        }
+        HotkeyManager.shared.reload()
+
         NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { event in
+            // A custom shortcut replaces the double Control tap.
+            guard AppSettings.shared.shortcut == nil else { return }
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             let now = Date()
 
@@ -212,7 +223,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        print("App is running, listening for double Control tap...")
+        print("App is running, listening for \(AppSettings.shared.shortcut?.displayString ?? "double Control tap")...")
     }
 }
 
