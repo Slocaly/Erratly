@@ -6,44 +6,34 @@ Renders at 2x internally for antialiasing quality, then downsamples to the
 assume.
 """
 import os
+import random
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 SCALE = 2
 W, H = 660 * SCALE, 400 * SCALE
 
-BG_TOP = (13, 12, 18)
-BG_BOTTOM = (7, 7, 10)
-ACCENT = (198, 178, 245)       # lavender sparkle, dialed back from the app icon's (226,211,253)
-ACCENT_SOFT = (150, 132, 200)
+PAPER = (246, 239, 216)        # matches the review panel and the landing page
+INK = (32, 24, 15)
+MUTED = (138, 127, 99)
+ACCENT = (179, 57, 46)         # editor's red
+RULE_SPACING = 31 * SCALE
 
-img = Image.new("RGB", (W, H), BG_BOTTOM)
+img = Image.new("RGB", (W, H), PAPER)
+
+# Ruled notebook lines, same rhythm as the landing page background.
+rules = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+rules_draw = ImageDraw.Draw(rules)
+for y in range(RULE_SPACING, H, RULE_SPACING):
+    rules_draw.rectangle([0, y, W, y + SCALE - 1], fill=ACCENT + (28,))
+
+# Faint paper grain, like DiffPanel's PaperView.
+random.seed(7)
+for _ in range(W * H // 40):
+    x, y = random.randrange(W), random.randrange(H)
+    rules_draw.point((x, y), fill=(random.choice([(0, 0, 0), (255, 255, 255)]) + (random.randint(4, 14),)))
+
+img = Image.alpha_composite(img.convert("RGBA"), rules)
 draw = ImageDraw.Draw(img)
-
-for y in range(H):
-    t = y / H
-    r = int(BG_TOP[0] + (BG_BOTTOM[0] - BG_TOP[0]) * t)
-    g = int(BG_TOP[1] + (BG_BOTTOM[1] - BG_TOP[1]) * t)
-    b = int(BG_TOP[2] + (BG_BOTTOM[2] - BG_TOP[2]) * t)
-    draw.line([(0, y), (W, y)], fill=(r, g, b))
-
-glow = Image.new("L", (W, H), 0)
-glow_draw = ImageDraw.Draw(glow)
-cx, cy = W // 2, int(178 * SCALE)
-max_r = int(120 * SCALE)
-glow_draw.ellipse([cx - max_r, cy - max_r, cx + max_r, cy + max_r], fill=60)
-glow = glow.filter(ImageFilter.GaussianBlur(int(55 * SCALE)))
-
-purple_layer = Image.new("RGB", (W, H), ACCENT_SOFT)
-img = Image.composite(purple_layer, img, glow)
-draw = ImageDraw.Draw(img)
-
-border_inset = int(1 * SCALE)
-draw.rounded_rectangle(
-    [border_inset, border_inset, W - border_inset, H - border_inset],
-    radius=int(14 * SCALE),
-    outline=(255, 255, 255, 40),
-    width=1,
-)
 
 # Arrow bridging the app icon slot (x=180) and the Applications alias slot (x=480).
 icon_y = int(180 * SCALE)
@@ -53,23 +43,20 @@ arrow_y = icon_y
 shaft_start = left_x + int(95 * SCALE)
 shaft_end = right_x - int(105 * SCALE)
 
-arrow_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-arrow_draw = ImageDraw.Draw(arrow_layer)
 shaft_w = int(3 * SCALE)
-arrow_draw.line([(shaft_start, arrow_y), (shaft_end, arrow_y)], fill=ACCENT + (220,), width=shaft_w)
+draw.line([(shaft_start, arrow_y), (shaft_end, arrow_y)], fill=ACCENT, width=shaft_w)
 
 head_len = int(16 * SCALE)
 head_w = int(10 * SCALE)
 tip = (shaft_end + int(14 * SCALE), arrow_y)
-arrow_draw.polygon(
+draw.polygon(
     [
         tip,
         (tip[0] - head_len, arrow_y - head_w),
         (tip[0] - head_len, arrow_y + head_w),
     ],
-    fill=ACCENT + (220,),
+    fill=ACCENT,
 )
-img.paste(Image.alpha_composite(img.convert("RGBA"), arrow_layer).convert("RGB"), (0, 0))
 
 
 def load_font(paths, size):
@@ -81,20 +68,44 @@ def load_font(paths, size):
     return ImageFont.load_default()
 
 
-title_font = load_font(["/System/Library/Fonts/HelveticaNeue.ttc"], int(20 * SCALE))
-sub_font = load_font(["/System/Library/Fonts/HelveticaNeue.ttc"], int(13 * SCALE))
+MONO = ["/System/Library/Fonts/SFNSMono.ttf", "/System/Library/Fonts/Menlo.ttc"]
 
-draw = ImageDraw.Draw(img)
+
+def mono(size, style):
+    font = load_font(MONO, int(size * SCALE))
+    try:
+        font.set_variation_by_name(style)
+    except Exception:
+        pass
+    return font
+
+
+badge_font = mono(11, "Bold")
+title_font = mono(18, "Bold")
+sub_font = mono(12, "Regular")
+
+# "INSTALL" tab in the top-left corner, like the landing page's "Try it" badge.
+badge = "INSTALL"
+bx, by = int(24 * SCALE), int(22 * SCALE)
+pad_x, pad_y = int(10 * SCALE), int(4 * SCALE)
+tracking = int(1.1 * SCALE)
+badge_w = sum(draw.textlength(c, font=badge_font) for c in badge) + tracking * (len(badge) - 1)
+ascent, descent = badge_font.getmetrics()
+draw.rectangle([bx, by, bx + badge_w + pad_x * 2, by + ascent + descent + pad_y * 2], fill=INK)
+cx = bx + pad_x
+for c in badge:
+    draw.text((cx, by + pad_y), c, font=badge_font, fill=PAPER)
+    cx += draw.textlength(c, font=badge_font) + tracking
 
 title = "Drag Erratly to Applications"
 tw = draw.textlength(title, font=title_font)
-draw.text(((W - tw) / 2, int(300 * SCALE)), title, font=title_font, fill=(240, 238, 245))
+draw.text(((W - tw) / 2, int(300 * SCALE)), title, font=title_font, fill=INK)
 
 subtitle = "to finish installing"
 sw = draw.textlength(subtitle, font=sub_font)
-draw.text(((W - sw) / 2, int(332 * SCALE)), subtitle, font=sub_font, fill=(150, 148, 158))
+draw.text(((W - sw) / 2, int(332 * SCALE)), subtitle, font=sub_font, fill=MUTED)
 
-final = img.resize((W // SCALE, H // SCALE), Image.LANCZOS)
+final = img.convert("RGB").resize((W // SCALE, H // SCALE), Image.LANCZOS)
 
 out_path = os.path.join(os.path.dirname(__file__), "background.png")
 final.save(out_path)

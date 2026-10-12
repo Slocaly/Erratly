@@ -31,8 +31,8 @@ final class SettingsWindow: NSWindowController {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
-        window.appearance = NSAppearance(named: .darkAqua)
-        window.backgroundColor = NSColor(SettingsTheme.bgBottom)
+        window.appearance = NSAppearance(named: .aqua)
+        window.backgroundColor = NSColor(SettingsTheme.paper)
         window.standardWindowButton(.miniaturizeButton)?.isHidden = true
         window.standardWindowButton(.zoomButton)?.isHidden = true
         window.isReleasedWhenClosed = false
@@ -80,15 +80,30 @@ final class SettingsWindow: NSWindowController {
     }
 }
 
-// Mirrors the palette in dmg-resources/make_background.py so the settings
-// window matches the install window.
+// Mirrors the paper/ink palette of the review panel (DiffPanel) and the
+// landing page, and dmg-resources/make_background.py for the install window.
 private enum SettingsTheme {
-    static let bgTop = Color(red: 13 / 255, green: 12 / 255, blue: 18 / 255)
-    static let bgBottom = Color(red: 7 / 255, green: 7 / 255, blue: 10 / 255)
-    static let accent = Color(red: 198 / 255, green: 178 / 255, blue: 245 / 255)
-    static let accentSoft = Color(red: 150 / 255, green: 132 / 255, blue: 200 / 255)
-    static let textPrimary = Color(red: 240 / 255, green: 238 / 255, blue: 245 / 255)
-    static let textSecondary = Color(red: 150 / 255, green: 148 / 255, blue: 158 / 255)
+    static let paper = Color(red: 246 / 255, green: 239 / 255, blue: 216 / 255)
+    static let card = Color(red: 251 / 255, green: 246 / 255, blue: 230 / 255)
+    static let ink = Color(red: 32 / 255, green: 24 / 255, blue: 15 / 255)
+    static let muted = Color(red: 138 / 255, green: 127 / 255, blue: 99 / 255)
+    static let accent = Color(red: 179 / 255, green: 57 / 255, blue: 46 / 255)
+    static let ruleSpacing: CGFloat = 31
+
+    static func mono(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        .system(size: size, weight: weight, design: .monospaced)
+    }
+}
+
+private struct SectionLabel: View {
+    let text: String
+
+    var body: some View {
+        Text(text.uppercased())
+            .font(SettingsTheme.mono(10, .bold))
+            .tracking(1)
+            .foregroundStyle(SettingsTheme.muted)
+    }
 }
 
 private struct SettingsView: View {
@@ -129,9 +144,7 @@ private struct SettingsView: View {
                     .padding(.top, 22)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Review panel size")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(SettingsTheme.textSecondary)
+                    SectionLabel(text: "Review panel size")
                     PillSwitch(selection: $panelSize, options: ReviewPanelSize.allCases.map { ($0, $0.title) })
                 }
                 .padding(.top, 22)
@@ -152,18 +165,18 @@ private struct SettingsView: View {
             .padding(.bottom, 24)
         }
         .frame(width: 400, height: 690)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
     }
 
+    // Ruled notebook paper, same as the landing page background.
     private var background: some View {
-        ZStack {
-            LinearGradient(colors: [SettingsTheme.bgTop, SettingsTheme.bgBottom], startPoint: .top, endPoint: .bottom)
-            RadialGradient(
-                colors: [SettingsTheme.accentSoft.opacity(0.28), .clear],
-                center: UnitPoint(x: 0.5, y: 0.2),
-                startRadius: 0,
-                endRadius: 240
-            )
+        Canvas { context, size in
+            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(SettingsTheme.paper))
+            var y = SettingsTheme.ruleSpacing
+            while y < size.height {
+                context.fill(Path(CGRect(x: 0, y: y, width: size.width, height: 1)), with: .color(SettingsTheme.accent.opacity(0.11)))
+                y += SettingsTheme.ruleSpacing
+            }
         }
         .ignoresSafeArea()
     }
@@ -173,48 +186,49 @@ private struct SettingsView: View {
             Image("AppIconRound")
                 .resizable()
                 .frame(width: 56, height: 56)
-                .shadow(color: SettingsTheme.accentSoft.opacity(0.5), radius: 16)
-            Text("Erratly")
-                .font(.system(size: 20, weight: .medium))
-                .foregroundStyle(SettingsTheme.textPrimary)
+                .shadow(color: SettingsTheme.ink.opacity(0.2), radius: 6, y: 3)
+            Text("ERRATLY")
+                .font(SettingsTheme.mono(15, .bold))
+                .tracking(1.5)
+                .foregroundStyle(SettingsTheme.ink)
             Text("Choose where corrections run")
-                .font(.system(size: 13))
-                .foregroundStyle(SettingsTheme.textSecondary)
+                .font(SettingsTheme.mono(12))
+                .foregroundStyle(SettingsTheme.muted)
         }
     }
 }
 
+// Ink segmented control, styled after the landing page language switch.
 private struct PillSwitch<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [(Value, String)]
     @Namespace private var highlight
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 2) {
             ForEach(options, id: \.0) { value, title in
                 option(title, value: value)
             }
         }
         .padding(3)
-        .background(Capsule().fill(Color.white.opacity(0.05)))
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 3).fill(SettingsTheme.ink))
     }
 
     private func option(_ title: String, value: Value) -> some View {
         let selected = selection == value
         return Text(title)
-            .font(.system(size: 13, weight: selected ? .semibold : .regular))
-            .foregroundStyle(selected ? SettingsTheme.bgBottom : SettingsTheme.textSecondary)
+            .font(SettingsTheme.mono(12, .bold))
+            .foregroundStyle(selected ? SettingsTheme.ink : SettingsTheme.paper.opacity(0.75))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 7)
             .background {
                 if selected {
-                    Capsule()
-                        .fill(SettingsTheme.accent)
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(SettingsTheme.paper)
                         .matchedGeometryEffect(id: "highlight", in: highlight)
                 }
             }
-            .contentShape(Capsule())
+            .contentShape(Rectangle())
             .onTapGesture {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { selection = value }
             }
@@ -231,9 +245,7 @@ private struct StyledField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(label)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(SettingsTheme.textSecondary)
+            SectionLabel(text: label)
 
             Group {
                 if secure {
@@ -243,22 +255,23 @@ private struct StyledField: View {
                 }
             }
             .textFieldStyle(.plain)
-            .font(.system(size: 13))
-            .foregroundStyle(SettingsTheme.textPrimary)
+            .font(SettingsTheme.mono(13))
+            .foregroundStyle(SettingsTheme.ink)
+            .tint(SettingsTheme.accent)
             .focused($focused)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
+            .background(RoundedRectangle(cornerRadius: 2).fill(SettingsTheme.card))
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(focused ? SettingsTheme.accent.opacity(0.8) : Color.white.opacity(0.1), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 2)
+                    .strokeBorder(focused ? SettingsTheme.accent : SettingsTheme.ink.opacity(0.3), lineWidth: focused ? 1.5 : 1)
             )
             .animation(.easeOut(duration: 0.15), value: focused)
         }
     }
 
     private var prompt: Text {
-        Text(placeholder).foregroundStyle(SettingsTheme.textSecondary.opacity(0.6))
+        Text(placeholder).foregroundStyle(SettingsTheme.muted.opacity(0.7))
     }
 }
 
@@ -270,23 +283,21 @@ private struct ShortcutRecorder: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Shortcut")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(SettingsTheme.textSecondary)
+            SectionLabel(text: "Shortcut")
 
             HStack(spacing: 8) {
                 Button(action: { recording ? stopRecording() : startRecording() }) {
                     Text(title)
-                        .font(.system(size: 13, weight: recording ? .regular : .medium))
-                        .foregroundStyle(recording ? SettingsTheme.textSecondary : SettingsTheme.textPrimary)
+                        .font(SettingsTheme.mono(13, recording ? .regular : .semibold))
+                        .foregroundStyle(recording ? SettingsTheme.accent : SettingsTheme.ink)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
+                        .background(RoundedRectangle(cornerRadius: 2).fill(SettingsTheme.card))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(recording ? SettingsTheme.accent.opacity(0.8) : Color.white.opacity(0.1), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 2)
+                                .strokeBorder(recording ? SettingsTheme.accent : SettingsTheme.ink.opacity(0.3), lineWidth: recording ? 1.5 : 1)
                         )
-                        .contentShape(RoundedRectangle(cornerRadius: 8))
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .animation(.easeOut(duration: 0.15), value: recording)
@@ -301,8 +312,8 @@ private struct ShortcutRecorder: View {
             }
 
             Text(recording ? "Press a key combination with ⌘, ⌥ or ⌃ — Esc to cancel" : "Add ⇧ to flip “Review before applying”")
-                .font(.system(size: 11))
-                .foregroundStyle(SettingsTheme.textSecondary.opacity(0.8))
+                .font(SettingsTheme.mono(10))
+                .foregroundStyle(SettingsTheme.muted)
         }
         .onDisappear { stopRecording() }
     }
@@ -344,24 +355,30 @@ private struct ShortcutRecorder: View {
     }
 }
 
+// Flat, uppercase typewriter buttons matching the review panel's Accept/Cancel.
 private struct AccentButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(SettingsTheme.bgBottom)
-            .padding(.horizontal, 22)
+            .textCase(.uppercase)
+            .font(SettingsTheme.mono(11, .bold))
+            .tracking(0.6)
+            .foregroundStyle(SettingsTheme.paper)
+            .padding(.horizontal, 18)
             .padding(.vertical, 7)
-            .background(Capsule().fill(SettingsTheme.accent.opacity(configuration.isPressed ? 0.75 : 1)))
+            .background(RoundedRectangle(cornerRadius: 2).fill(SettingsTheme.ink.opacity(configuration.isPressed ? 0.75 : 1)))
     }
 }
 
 private struct QuietButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13))
-            .foregroundStyle(SettingsTheme.textSecondary.opacity(configuration.isPressed ? 0.6 : 1))
+            .textCase(.uppercase)
+            .font(SettingsTheme.mono(11, .bold))
+            .tracking(0.6)
+            .foregroundStyle(SettingsTheme.ink.opacity(configuration.isPressed ? 0.6 : 1))
             .padding(.horizontal, 14)
             .padding(.vertical, 7)
-            .contentShape(Capsule())
+            .overlay(RoundedRectangle(cornerRadius: 2).strokeBorder(SettingsTheme.ink, lineWidth: 1))
+            .contentShape(Rectangle())
     }
 }
