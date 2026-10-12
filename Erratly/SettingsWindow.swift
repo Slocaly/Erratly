@@ -47,15 +47,36 @@ final class SettingsWindow: NSWindowController {
             shortcut: initialShortcut,
             panelSize: initialPanelSize,
             onCancel: { [weak self] in self?.window?.close() },
+            onHeightChange: { [weak self] height in self?.fitWindow(toContentHeight: height) },
             onSave: { [weak self] backend, baseURL, apiKey, modelName, shortcut, panelSize in
                 self?.save(backend: backend, baseURL: baseURL, apiKey: apiKey, modelName: modelName, shortcut: shortcut, panelSize: panelSize)
             }
         )
-        window.contentView = NSHostingView(rootView: view)
+        let hostingView = NSHostingView(rootView: view)
+        // Measure before disabling sizing options: fittingSize is zero without them.
+        window.setContentSize(hostingView.fittingSize)
+        // The window is resized by fitWindow(toContentHeight:) instead, so it
+        // can keep its top edge in place.
+        hostingView.sizingOptions = []
+        window.contentView = hostingView
         window.center()
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    // AppKit anchors frame changes at the bottom-left corner; pin the top edge
+    // instead so showing/hiding the remote fields only moves the bottom.
+    private func fitWindow(toContentHeight height: CGFloat) {
+        guard let window else { return }
+        let current = window.frame
+        // SwiftUI lays the content out below the transparent title bar, which
+        // the full-size content view doesn't count in its frame.
+        let titlebarInset = window.contentView?.safeAreaInsets.top ?? 0
+        var frame = window.frameRect(forContentRect: NSRect(x: 0, y: 0, width: current.width, height: height + titlebarInset))
+        guard height > 0, frame.height != current.height else { return }
+        frame.origin = NSPoint(x: current.minX, y: current.maxY - frame.height)
+        window.setFrame(frame, display: true, animate: window.isVisible)
+    }
 
     private func save(backend newBackend: Backend, baseURL: String, apiKey: String, modelName: String, shortcut: KeyShortcut?, panelSize: ReviewPanelSize) {
         var newBaseURL = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -115,56 +136,59 @@ private struct SettingsView: View {
     @State var panelSize: ReviewPanelSize
 
     let onCancel: () -> Void
+    let onHeightChange: (CGFloat) -> Void
     let onSave: (Backend, String, String, String, KeyShortcut?, ReviewPanelSize) -> Void
 
     private var remoteEnabled: Bool { backend == .remote }
 
     var body: some View {
-        ZStack {
-            background
+        VStack(spacing: 0) {
+            header
+                .padding(.top, 36)
+                .padding(.bottom, 24)
 
-            VStack(spacing: 0) {
-                header
-                    .padding(.top, 36)
-                    .padding(.bottom, 24)
+            PillSwitch(selection: $backend, options: [(.local, "Local (on-device)"), (.remote, "Remote API")])
+                .padding(.bottom, 22)
 
-                PillSwitch(selection: $backend, options: [(.local, "Local (on-device)"), (.remote, "Remote API")])
-                    .padding(.bottom, 22)
-
+            if remoteEnabled {
                 VStack(alignment: .leading, spacing: 14) {
                     StyledField(label: "Base URL", placeholder: "https://api.openai.com/v1", text: $baseURL)
                     StyledField(label: "API Key", placeholder: "sk-…", text: $apiKey, secure: true)
                     StyledField(label: "Model Name", placeholder: "gpt-4o-mini", text: $modelName)
                 }
-                .disabled(!remoteEnabled)
-                .opacity(remoteEnabled ? 1 : 0.4)
-                .animation(.easeOut(duration: 0.15), value: remoteEnabled)
-
-                ShortcutRecorder(shortcut: $shortcut)
-                    .padding(.top, 22)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    SectionLabel(text: "Review panel size")
-                    PillSwitch(selection: $panelSize, options: ReviewPanelSize.allCases.map { ($0, $0.title) })
-                }
-                .padding(.top, 22)
-
-                Spacer(minLength: 0)
-
-                HStack(spacing: 10) {
-                    Spacer()
-                    Button("Cancel", action: onCancel)
-                        .buttonStyle(QuietButtonStyle())
-                        .keyboardShortcut(.cancelAction)
-                    Button("Save") { onSave(backend, baseURL, apiKey, modelName, shortcut, panelSize) }
-                        .buttonStyle(AccentButtonStyle())
-                        .keyboardShortcut(.defaultAction)
-                }
+                .padding(.bottom, 22)
             }
-            .padding(.horizontal, 28)
-            .padding(.bottom, 24)
+
+            ShortcutRecorder(shortcut: $shortcut)
+
+            VStack(alignment: .leading, spacing: 6) {
+                SectionLabel(text: "Review panel size")
+                PillSwitch(selection: $panelSize, options: ReviewPanelSize.allCases.map { ($0, $0.title) })
+            }
+            .padding(.top, 22)
+            .padding(.bottom, 28)
+
+            HStack(spacing: 10) {
+                Spacer()
+                Button("Cancel", action: onCancel)
+                    .buttonStyle(QuietButtonStyle())
+                    .keyboardShortcut(.cancelAction)
+                Button("Save") { onSave(backend, baseURL, apiKey, modelName, shortcut, panelSize) }
+                    .buttonStyle(AccentButtonStyle())
+                    .keyboardShortcut(.defaultAction)
+            }
         }
-        .frame(width: 400, height: 690)
+        .padding(.horizontal, 28)
+        .padding(.bottom, 24)
+        // Height follows the content so the window shrinks when the remote
+        // fields are hidden.
+        .frame(width: 400)
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { onHeightChange($0) }
+        // minHeight 0 keeps the content pinned to the top (instead of centered)
+        // while it is briefly taller than the window during the resize.
+        .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
+        .background(background)
         .preferredColorScheme(.light)
     }
 
