@@ -237,6 +237,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Nothing is downloaded until the user picks a backend in onboarding.
             setStatus(.needsSetup)
             showOnboarding()
+        } else if AppSettings.shared.backend == .local, !LocalCorrectionProvider.isDownloaded {
+            // The model was deleted from the menu: wait for the user to ask
+            // for it again rather than silently re-downloading it.
+            setStatus(.needsSetup)
         } else {
             loadBackend()
         }

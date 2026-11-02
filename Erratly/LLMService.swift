@@ -27,6 +27,13 @@ actor LLMService {
         activeProvider = provider
     }
 
+    /// Drops the active provider (freeing the local model's memory) and
+    /// cancels any load still in flight.
+    func unloadModel() {
+        loadGeneration += 1
+        activeProvider = nil
+    }
+
     func correctText(_ text: String, language: String?, examples: [CorrectionPair]) async throws -> String {
         guard let provider = activeProvider else {
             throw NSError(domain: "LLMService", code: 0, userInfo: [NSLocalizedDescriptionKey: "Model not loaded"])

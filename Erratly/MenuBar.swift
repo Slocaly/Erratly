@@ -24,6 +24,21 @@ extension AppDelegate {
         welcomeItem.target = self
         menu.addItem(welcomeItem)
 
+        // Re-download after a deletion; onboarding offers it the first time.
+        if AppSettings.shared.backend == .local, status == .needsSetup,
+           AppSettings.shared.hasCompletedOnboarding, !LocalCorrectionProvider.isDownloaded {
+            let downloadItem = NSMenuItem(title: s.downloadModel, action: #selector(downloadModel), keyEquivalent: "")
+            downloadItem.target = self
+            menu.addItem(downloadItem)
+        }
+
+        // Not while it's being downloaded/loaded or used for a correction.
+        if LocalCorrectionProvider.isDownloaded, status != .loading, status != .processing {
+            let deleteItem = NSMenuItem(title: s.deleteModel, action: #selector(deleteModel), keyEquivalent: "")
+            deleteItem.target = self
+            menu.addItem(deleteItem)
+        }
+
         menu.addItem(.separator())
 
         let reviewItem = NSMenuItem(title: s.reviewBeforeApplying, action: #selector(toggleDiffPanel), keyEquivalent: "")
@@ -83,6 +98,39 @@ extension AppDelegate {
     @objc func clearCorrectionHistory() {
         CorrectionHistory.shared.clear()
         updateMenu(status: currentStatus)
+    }
+
+    @objc func downloadModel() {
+        loadBackend()
+    }
+
+    @objc func deleteModel() {
+        let s = strings
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = s.deleteModelTitle
+        alert.informativeText = s.deleteModelMessage
+        let deleteButton = alert.addButton(withTitle: s.delete)
+        deleteButton.hasDestructiveAction = true
+        alert.addButton(withTitle: s.cancel)
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        do {
+            try LocalCorrectionProvider.deleteDownload()
+        } catch {
+            print("❌ Failed to delete model: \(error)")
+            return
+        }
+
+        guard AppSettings.shared.backend == .local else {
+            updateMenu(status: currentStatus)
+            return
+        }
+        Task {
+            await LLMService.shared.unloadModel()
+            self.setStatus(.needsSetup)
+        }
     }
 
     @objc func openSettings() {

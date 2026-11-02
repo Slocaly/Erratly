@@ -9,13 +9,23 @@ actor LocalCorrectionProvider: CorrectionProvider {
 
     private var modelContainer: ModelContainer?
 
-    /// Whether the weights are already in MLX's download cache
-    /// (defaultHubApi → Caches/models/<repo id>), so loading needs no download.
+    /// Where MLX's download cache keeps the weights
+    /// (defaultHubApi → Caches/models/<repo id>).
+    nonisolated private static var downloadDirectory: URL? {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
+            .appending(path: "models/mlx-community/\(modelName)")
+    }
+
+    /// Whether the weights are already in the download cache, so loading needs no download.
     nonisolated static var isDownloaded: Bool {
-        guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return false }
-        let repo = caches.appending(path: "models/mlx-community/\(modelName)")
+        guard let repo = downloadDirectory else { return false }
         let files = (try? FileManager.default.contentsOfDirectory(atPath: repo.path(percentEncoded: false))) ?? []
         return files.contains { $0.hasSuffix(".safetensors") }
+    }
+
+    nonisolated static func deleteDownload() throws {
+        guard let repo = downloadDirectory else { return }
+        try FileManager.default.removeItem(at: repo)
     }
 
     func prepare(progress: @escaping @Sendable (Double) -> Void) async throws {
