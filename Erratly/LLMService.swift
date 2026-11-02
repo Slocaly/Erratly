@@ -10,13 +10,20 @@ actor LLMService {
     private init() {}
 
     private var activeProvider: CorrectionProvider?
+    private var loadGeneration = 0
 
-    func loadModel() async throws {
+    /// Throws CancellationError if another load started while this one was
+    /// running (e.g. the user switched backend mid-download), so a stale
+    /// provider never replaces the newer one.
+    func loadModel(progress: @escaping @Sendable (Double) -> Void = { _ in }) async throws {
         let provider: CorrectionProvider = AppSettings.shared.backend == .local
             ? LocalCorrectionProvider()
             : RemoteCorrectionProvider()
+        loadGeneration += 1
+        let generation = loadGeneration
         activeProvider = nil
-        try await provider.prepare()
+        try await provider.prepare(progress: progress)
+        guard generation == loadGeneration else { throw CancellationError() }
         activeProvider = provider
     }
 

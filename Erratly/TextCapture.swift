@@ -2,7 +2,7 @@ import Cocoa
 
 extension AppDelegate {
     func getSelectedText() {
-        guard currentStatus != .loading, currentStatus != .error else {
+        guard currentStatus != .loading, currentStatus != .error, currentStatus != .needsSetup else {
             showModelNotReadyNotification()
             return
         }
@@ -13,6 +13,20 @@ extension AppDelegate {
         }
 
         let previousClipboard = NSPasteboard.general.string(forType: .string)
+
+        // Our own windows (e.g. the onboarding practice field): AX calls into
+        // our own process from the main thread would block on themselves, so
+        // talk to the text view directly.
+        if frontApp == NSRunningApplication.current {
+            guard let textView = NSApp.keyWindow?.firstResponder as? NSTextView,
+                  textView.isEditable else { return }
+            let range = textView.selectedRange()
+            guard range.length > 0 else { return }
+            let text = (textView.string as NSString).substring(with: range)
+            ownTextTarget = (textView, range)
+            handleSelectedText(text, previousClipboard: previousClipboard, selectionBounds: selectionBounds(of: range, in: textView), app: frontApp)
+            return
+        }
 
         print("🔍 Trying AX for: \(frontApp.localizedName ?? "unknown")")
 
@@ -73,6 +87,15 @@ extension AppDelegate {
     }
 
     func replaceSelectedText(_ newText: String, app: NSRunningApplication, previousClipboard: String?) {
+        if app == NSRunningApplication.current {
+            if let (textView, range) = ownTextTarget, NSMaxRange(range) <= (textView.string as NSString).length {
+                textView.window?.makeFirstResponder(textView)
+                textView.insertText(newText, replacementRange: range)
+                backendState.inAppCorrections += 1
+            }
+            ownTextTarget = nil
+            return
+        }
         if replaceTextViaAX(newText: newText, app: app) {
             print("✅ Replaced via AX")
             let pasteboard = NSPasteboard.general
@@ -84,6 +107,13 @@ extension AppDelegate {
         }
         print("⚠️ AX failed, falling back to clipboard paste...")
         replaceTextViaClipboard(newText: newText, app: app, previousClipboard: previousClipboard)
+    }
+
+    /// Same top-left-origin screen coordinates as kAXBoundsForRangeParameterizedAttribute.
+    func selectionBounds(of range: NSRange, in textView: NSTextView) -> CGRect? {
+        let rect = textView.firstRect(forCharacterRange: range, actualRange: nil)
+        guard !rect.isEmpty, let mainScreenHeight = NSScreen.screens.first?.frame.height else { return nil }
+        return CGRect(x: rect.minX, y: mainScreenHeight - rect.maxY, width: rect.width, height: rect.height)
     }
 
     func replaceTextViaAX(newText: String, app: NSRunningApplication) -> Bool {

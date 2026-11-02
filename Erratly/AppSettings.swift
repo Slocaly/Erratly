@@ -60,6 +60,11 @@ nonisolated final class AppSettings: @unchecked Sendable {
         set { UserDefaults.standard.set(newValue, forKey: "remoteModelName") }
     }
 
+    var hasCompletedOnboarding: Bool {
+        get { UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") }
+        set { UserDefaults.standard.set(newValue, forKey: "hasCompletedOnboarding") }
+    }
+
     var reviewPanelSize: ReviewPanelSize {
         get {
             guard let raw = UserDefaults.standard.string(forKey: "reviewPanelSize"),

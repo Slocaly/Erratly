@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated protocol CorrectionProvider {
-    func prepare() async throws
+    func prepare(progress: @escaping @Sendable (Double) -> Void) async throws
     func correctText(_ text: String, language: String?, examples: [CorrectionPair]) async throws -> String
 }
 

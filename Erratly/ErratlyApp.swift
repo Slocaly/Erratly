@@ -22,6 +22,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var currentStatus: AppStatus = .loading
     var diffPanel: DiffPanel?
     var settingsWindow: SettingsWindow?
+    var onboardingWindow: OnboardingWindow?
+    /// Where to write the correction back when the text came from one of our own windows.
+    var ownTextTarget: (NSTextView, NSRange)?
+    let backendState = BackendState()
 
     static let languages: [String] = [
         "English", "French", "Spanish", "German", "Italian",
@@ -82,11 +86,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func setStatus(_ status: AppStatus) {
         DispatchQueue.main.async {
             self.currentStatus = status
+            self.backendState.status = status
             self.statusItem?.button?.title = status.symbol
             self.updateMenu(status: status)
 
             if status != .processing {
                 LoadingOverlay.shared.hide()
+            }
+        }
+    }
+
+    /// Loads whichever backend is selected in AppSettings, reporting the local
+    /// model's download progress through backendState.
+    func loadBackend() {
+        setStatus(.loading)
+        backendState.progress = 0
+        Task {
+            do {
+                try await LLMService.shared.loadModel { fraction in
+                    DispatchQueue.main.async { self.backendState.progress = fraction }
+                }
+                self.setStatus(.ready)
+            } catch is CancellationError {
+                // A newer load replaced this one; it reports its own status.
+            } catch {
+                print("❌ Failed to load backend: \(error)")
+                self.setStatus(.error)
             }
         }
     }
@@ -157,11 +182,46 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func handleFlagsChanged(_ event: NSEvent) {
+        // A custom shortcut replaces the double Control tap.
+        guard AppSettings.shared.shortcut == nil else { return }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let now = Date()
+
+        if flags == .control {
+            if let lastPress = self.lastControlPressTime,
+               now.timeIntervalSince(lastPress) < 0.4 {
+                print("🎉 Double Control triggered!")
+                self.isShiftTrigger = false
+                self.getSelectedText()
+                self.lastControlPressTime = nil
+            } else {
+                self.previousApp = NSWorkspace.shared.frontmostApplication
+                self.lastControlPressTime = now
+            }
+        } else if flags == [.control, .shift] {
+            if let lastPress = self.lastControlShiftPressTime,
+               now.timeIntervalSince(lastPress) < 0.4 {
+                print("🎉 Double Control+Shift triggered!")
+                self.isShiftTrigger = true
+                self.getSelectedText()
+                self.lastControlShiftPressTime = nil
+            } else {
+                self.previousApp = NSWorkspace.shared.frontmostApplication
+                self.lastControlShiftPressTime = now
+            }
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         Analytics.initialize()
 
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-        AXIsProcessTrustedWithOptions(options as CFDictionary)
+        let needsOnboarding = !AppSettings.shared.hasCompletedOnboarding
+        // Onboarding has its own Accessibility step.
+        if !needsOnboarding {
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+            AXIsProcessTrustedWithOptions(options as CFDictionary)
+        }
 
         NSApp.setActivationPolicy(.accessory)
         setupMainMenu()
@@ -173,14 +233,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         setupMenuBar()
 
-        Task {
-            do {
-                try await LLMService.shared.loadModel()
-                self.setStatus(.ready)
-            } catch {
-                print("❌ Failed to load model: \(error)")
-                self.setStatus(.error)
-            }
+        if needsOnboarding {
+            // Nothing is downloaded until the user picks a backend in onboarding.
+            setStatus(.needsSetup)
+            showOnboarding()
+        } else {
+            loadBackend()
         }
 
         HotkeyManager.shared.onTrigger = { [weak self] withShift in
@@ -192,35 +250,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         HotkeyManager.shared.reload()
 
-        NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { event in
-            // A custom shortcut replaces the double Control tap.
-            guard AppSettings.shared.shortcut == nil else { return }
-            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            let now = Date()
-
-            if flags == .control {
-                if let lastPress = self.lastControlPressTime,
-                   now.timeIntervalSince(lastPress) < 0.4 {
-                    print("🎉 Double Control triggered!")
-                    self.isShiftTrigger = false
-                    self.getSelectedText()
-                    self.lastControlPressTime = nil
-                } else {
-                    self.previousApp = NSWorkspace.shared.frontmostApplication
-                    self.lastControlPressTime = now
-                }
-            } else if flags == [.control, .shift] {
-                if let lastPress = self.lastControlShiftPressTime,
-                   now.timeIntervalSince(lastPress) < 0.4 {
-                    print("🎉 Double Control+Shift triggered!")
-                    self.isShiftTrigger = true
-                    self.getSelectedText()
-                    self.lastControlShiftPressTime = nil
-                } else {
-                    self.previousApp = NSWorkspace.shared.frontmostApplication
-                    self.lastControlShiftPressTime = now
-                }
-            }
+        NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            self?.handleFlagsChanged(event)
+        }
+        // The global monitor only sees events sent to other apps; this one
+        // covers Erratly's own windows, like the onboarding practice field.
+        NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            self?.handleFlagsChanged(event)
+            return event
         }
 
         print("App is running, listening for \(AppSettings.shared.shortcut?.displayString ?? "double Control tap")...")

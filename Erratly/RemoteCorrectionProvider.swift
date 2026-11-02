@@ -41,7 +41,7 @@ nonisolated enum RemoteAPIFormat {
 }
 
 actor RemoteCorrectionProvider: CorrectionProvider {
-    func prepare() async throws {
+    func prepare(progress: @escaping @Sendable (Double) -> Void) async throws {
         let settings = AppSettings.shared
         guard !settings.remoteBaseURL.isEmpty,
               !settings.remoteModelName.isEmpty,

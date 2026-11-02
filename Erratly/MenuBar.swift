@@ -20,6 +20,10 @@ extension AppDelegate {
         settingsItem.target = self
         menu.addItem(settingsItem)
 
+        let welcomeItem = NSMenuItem(title: s.welcomeGuide, action: #selector(showOnboarding), keyEquivalent: "")
+        welcomeItem.target = self
+        menu.addItem(welcomeItem)
+
         menu.addItem(.separator())
 
         let reviewItem = NSMenuItem(title: s.reviewBeforeApplying, action: #selector(toggleDiffPanel), keyEquivalent: "")
@@ -88,18 +92,20 @@ extension AppDelegate {
             HotkeyManager.shared.reload()
             self.updateMenu(status: self.currentStatus)
             guard configChanged else { return }
-            self.setStatus(.loading)
-            Task {
-                do {
-                    try await LLMService.shared.loadModel()
-                    self.setStatus(.ready)
-                } catch {
-                    print("❌ Failed to reload backend: \(error)")
-                    self.setStatus(.error)
-                }
-            }
+            self.loadBackend()
         })
         settingsWindow?.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc func showOnboarding() {
+        if let window = onboardingWindow?.window, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        onboardingWindow = OnboardingWindow(appDelegate: self)
+        onboardingWindow?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 }

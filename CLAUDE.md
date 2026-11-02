@@ -22,8 +22,8 @@ There are no tests. The app must be run on Apple Silicon (MLX requires it).
 
 ## Prerequisites
 
-- **Accessibility permission**: The app prompts on first launch via `AXIsProcessTrustedWithOptions`. Without it, text capture and replacement silently fail.
-- **Local model** (only required for the Local backend, the default): Qwen 2.5 3B, downloaded automatically from Hugging Face on first launch. The app will load into `.error` status if it can't be loaded.
+- **Accessibility permission**: Requested from the onboarding's Accessibility step (and at launch via `AXIsProcessTrustedWithOptions` once onboarding is done). Without it, text capture and replacement silently fail.
+- **Local model** (only required for the Local backend, the default): Qwen 2.5 3B, downloaded from Hugging Face when the user clicks "Download model" in onboarding (and loaded automatically on later launches). The app will load into `.error` status if it can't be loaded.
 - **Remote backend**: requires a base URL, model name, and API key, configured via the menu bar's "Settings…" window. The API key is stored in the macOS Keychain, never in `UserDefaults`.
 
 ## Architecture
@@ -45,6 +45,9 @@ The app has two source files:
 - **`Erratly/RemoteCorrectionProvider.swift`** — calls an OpenAI-compatible `/chat/completions` endpoint using the base URL / API key / model name from `AppSettings`.
 - **`Erratly/AppSettings.swift`** — `UserDefaults`-backed backend selection and remote config; the API key itself lives in the macOS Keychain via `Erratly/KeychainHelper.swift`.
 - **`Erratly/SettingsWindow.swift`** — the "Settings…" window (menu bar) for choosing local vs. remote and entering remote config.
+- **`Erratly/OnboardingWindow.swift`** — first-launch guide (language → backend + model download → Accessibility → practice the shortcut → ready). Shown until `AppSettings.hasCompletedOnboarding` is set; reopenable from the menu ("Welcome Guide…"). Until the user picks a backend there, nothing is loaded and the status is `.needsSetup`. Copy is in English and French only.
+- **`Erratly/Theme.swift`** — the paper/ink SwiftUI styling (`SettingsTheme`, `PillSwitch`, `StyledField`, button styles, `RuledPaper`) shared by the settings and onboarding windows.
+- Text selected in Erratly's own windows is captured and replaced through the focused `NSTextView` directly (`ownTextTarget`), not AX. A local `flagsChanged` monitor makes double ⌃ work there too.
 
 ## Dependencies
 
